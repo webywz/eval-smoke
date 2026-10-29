@@ -10,7 +10,7 @@ eval-smoke examples/suite.yaml --mock
 ```
 
 ```
-eval-smoke 0.1.0  ·  mock  ·  gpt-4o-mini  ·  demo  ·  4 cases
+eval-smoke 0.1.1  ·  mock  ·  gpt-4o-mini  ·  demo  ·  4 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
@@ -136,7 +136,7 @@ eval-smoke examples/suite.yaml --mock --json
 ```json
 {
   "ok": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "runner": "mock",
   "model": "gpt-4o-mini",
   "suite": "demo",
@@ -173,7 +173,7 @@ if (!report.ok) process.exit(1);
 GitHub Actions in this repo runs `npm test`, `npm run build`, and `eval-smoke examples/suite.yaml --mock` on Node 18/20/22. Drop this into another project:
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.1.0 prompts/smoke.yaml --mock
+- run: npx @webywz/eval-smoke@0.1.1 prompts/smoke.yaml --mock
 ```
 
 ## License

@@ -1,10 +1,10 @@
 {
   "name": "@webywz/eval-smoke",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One-minute smoke evals for prompts and models — catch regressions before they ship.",
   "type": "module",
   "bin": {
-    "eval-smoke": "./dist/cli.js"
+    "eval-smoke": "dist/cli.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -27,10 +27,11 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/postbuild-cli.js",
     "test": "tsx --test test/*.test.ts",
     "smoke": "node dist/cli.js examples/suite.yaml --mock",
-    "prepublishOnly": "npm test && npm run build"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm test"
   },
   "keywords": [
     "eval",
