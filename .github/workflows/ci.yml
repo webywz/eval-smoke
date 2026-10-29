@@ -25,9 +25,41 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: CLI bin is executable with shebang
+        run: |
+          set -euo pipefail
+          test "$(head -n 1 dist/cli.js)" = "#!/usr/bin/env node"
+          python3 -c "import os, stat; mode = os.stat('dist/cli.js').st_mode & 0o777; assert mode == 0o755, oct(mode)"
+      - name: Pack inspect (CLI bin survives)
+        run: |
+          set -euo pipefail
+          tmp=$(mktemp -d)
+          trap 'rm -rf "$tmp"' EXIT
+          npm pack --json --pack-destination "$tmp" >"$tmp/pack.json" 2>"$tmp/pack.err"
+          cat "$tmp/pack.err"
+          if grep -F 'was invalid and removed' "$tmp/pack.err"; then
+            exit 1
+          fi
+          tarball=$(python3 -c "import json,sys; data=json.load(open(sys.argv[1])); print((data[0] if isinstance(data, list) else data)['filename'])" "$tmp/pack.json")
+          tar -xzf "$tmp/$tarball" -C "$tmp"
+          python3 - "$tmp/package" <<'PY'
+          import json, os, sys
+          root = sys.argv[1]
+          pkg = json.load(open(os.path.join(root, "package.json"), encoding="utf-8"))
+          bin_path = (pkg.get("bin") or {}).get("eval-smoke")
+          assert bin_path in ("dist/cli.js", "./dist/cli.js"), pkg.get("bin")
+          cli = os.path.join(root, "dist", "cli.js")
+          mode = os.stat(cli).st_mode & 0o777
+          assert mode == 0o755, oct(mode)
+          with open(cli, encoding="utf-8") as fh:
+              first = fh.readline().rstrip("\n")
+          assert first == "#!/usr/bin/env node", first
+          print(f"pack inspect ok: bin={bin_path} mode={oct(mode)}")
+          PY
       - name: Mock smoke (human)
         run: node dist/cli.js examples/suite.yaml --mock
       - name: Mock smoke (json)
         run: node dist/cli.js examples/suite.yaml --mock --json
       - name: Mock smoke (json suite + fail-fast)
         run: node dist/cli.js examples/suite.json --mock --fail-fast
+
