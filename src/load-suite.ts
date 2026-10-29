@@ -1,0 +1,168 @@
+import { readFileSync } from "node:fs";
+import { extname, resolve } from "node:path";
+import { parse as parseYaml } from "yaml";
+import { asList, compileRegex, hasMatchers } from "./matchers.js";
+import { UsageError, type Case, type Expect, type ProviderName, type Suite } from "./types.js";
+
+const PROVIDERS = new Set<ProviderName>(["mock", "openai", "anthropic"]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function asString(value: unknown, label: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new UsageError(`${label} must be a non-empty string`);
+  }
+  return value;
+}
+
+function optionalString(value: unknown, label: string): string | undefined {
+  if (value == null) return undefined;
+  return asString(value, label);
+}
+
+function parseStringList(value: unknown, label: string): string | string[] | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") {
+    if (value === "") throw new UsageError(`${label} must not be empty`);
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) throw new UsageError(`${label} must not be an empty list`);
+    return value.map((item, index) => asString(item, `${label}[${index}]`));
+  }
+  throw new UsageError(`${label} must be a string or list of strings`);
+}
+
+function parseExpect(raw: unknown, caseId: string): Expect {
+  if (!isRecord(raw)) {
+    throw new UsageError(`Case "${caseId}" is missing a valid expect object`);
+  }
+
+  const expect: Expect = {
+    contains: parseStringList(raw.contains, `Case "${caseId}" expect.contains`),
+    not_contains: parseStringList(raw.not_contains, `Case "${caseId}" expect.not_contains`),
+    regex: parseStringList(raw.regex, `Case "${caseId}" expect.regex`),
+  };
+
+  if (raw.max_tokens != null) {
+    if (typeof raw.max_tokens !== "number" || !Number.isInteger(raw.max_tokens) || raw.max_tokens <= 0) {
+      throw new UsageError(`Case "${caseId}" expect.max_tokens must be a positive integer`);
+    }
+    expect.max_tokens = raw.max_tokens;
+  }
+
+  if (!hasMatchers(expect)) {
+    throw new UsageError(
+      `Case "${caseId}" expect needs at least one of contains, not_contains, regex, max_tokens`,
+    );
+  }
+
+  for (const rawRegex of asList(expect.regex)) {
+    try {
+      compileRegex(rawRegex);
+    } catch {
+      throw new UsageError(`Case "${caseId}" has an invalid regex: ${rawRegex}`);
+    }
+  }
+
+  return expect;
+}
+
+function parseCase(raw: unknown, index: number): Case {
+  if (!isRecord(raw)) {
+    throw new UsageError(`Case at index ${index} must be an object`);
+  }
+  const id = asString(raw.id, `Case at index ${index} id`);
+  return {
+    id,
+    prompt: asString(raw.prompt, `Case "${id}" prompt`),
+    system: optionalString(raw.system, `Case "${id}" system`),
+    model: optionalString(raw.model, `Case "${id}" model`),
+    expect: parseExpect(raw.expect, id),
+  };
+}
+
+function parseProvider(value: unknown): ProviderName | undefined {
+  if (value == null) return undefined;
+  if (typeof value !== "string" || !PROVIDERS.has(value as ProviderName)) {
+    throw new UsageError(`provider must be one of ${[...PROVIDERS].join(", ")}`);
+  }
+  return value as ProviderName;
+}
+
+export function parseSuite(raw: unknown): Suite {
+  let name: string | undefined;
+  let model: string | undefined;
+  let provider: ProviderName | undefined;
+  let system: string | undefined;
+  let caseList: unknown[];
+
+  if (Array.isArray(raw)) {
+    caseList = raw;
+  } else if (isRecord(raw)) {
+    name = optionalString(raw.name, "suite name");
+    model = optionalString(raw.model, "suite model");
+    provider = parseProvider(raw.provider);
+    system = optionalString(raw.system, "suite system");
+    if (raw.cases == null && "id" in raw && "prompt" in raw) {
+      caseList = [raw];
+    } else if (!Array.isArray(raw.cases)) {
+      throw new UsageError("Suite must be a list of cases or an object with a cases array");
+    } else {
+      caseList = raw.cases;
+    }
+  } else {
+    throw new UsageError("Suite must be a YAML/JSON list or object");
+  }
+
+  if (caseList.length === 0) {
+    throw new UsageError("Suite has no cases");
+  }
+
+  const cases = caseList.map((item, index) => parseCase(item, index));
+  const seen = new Set<string>();
+  for (const testCase of cases) {
+    if (seen.has(testCase.id)) {
+      throw new UsageError(`Duplicate case id "${testCase.id}"`);
+    }
+    seen.add(testCase.id);
+  }
+
+  return { name, model, provider, system, cases };
+}
+
+function parseDocument(text: string, source: string): unknown {
+  const body = text.replace(/^\uFEFF/, "");
+  const ext = extname(source).toLowerCase();
+  try {
+    if (ext === ".json") return JSON.parse(body) as unknown;
+    if (ext === ".yaml" || ext === ".yml") return parseYaml(body);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new UsageError(`Failed to parse ${source}: ${reason}`);
+  }
+
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    try {
+      return parseYaml(body);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new UsageError(`Failed to parse ${source}: ${reason}`);
+    }
+  }
+}
+
+export function loadSuite(path: string, cwd = process.cwd()): Suite {
+  const file = resolve(cwd, path);
+  let text: string;
+  try {
+    text = readFileSync(file, "utf8");
+  } catch {
+    throw new UsageError(`Suite file not found: ${file}`);
+  }
+  return parseSuite(parseDocument(text, file));
+}

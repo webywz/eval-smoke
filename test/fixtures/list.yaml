@@ -1,0 +1,4 @@
+- id: only
+  prompt: Reply with exactly the word Hello.
+  expect:
+    contains: Hello
