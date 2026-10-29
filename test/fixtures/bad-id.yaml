@@ -1,0 +1,9 @@
+cases:
+  - id: dup
+    prompt: Reply with exactly the word Hello.
+    expect:
+      contains: Hello
+  - id: dup
+    prompt: What is 2 + 2? Reply with just the number.
+    expect:
+      contains: "4"

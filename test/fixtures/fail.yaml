@@ -1,0 +1,10 @@
+name: should-fail
+cases:
+  - id: spain
+    prompt: What is the capital of Spain?
+    expect:
+      contains: Madrid
+  - id: greeting
+    prompt: Reply with exactly the word Hello.
+    expect:
+      contains: Hello

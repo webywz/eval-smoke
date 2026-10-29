@@ -1,0 +1,23 @@
+{
+  "name": "demo-json",
+  "model": "gpt-4o-mini",
+  "cases": [
+    {
+      "id": "greeting",
+      "prompt": "Reply with exactly the word Hello.",
+      "expect": {
+        "contains": "Hello",
+        "not_contains": "Goodbye",
+        "max_tokens": 32
+      }
+    },
+    {
+      "id": "capital-france",
+      "prompt": "What is the capital of France? Answer with the city name only.",
+      "expect": {
+        "contains": "Paris",
+        "regex": "(?i)^\\s*paris\\b"
+      }
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: test (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Mock smoke (human)
+        run: node dist/cli.js examples/suite.yaml --mock
+      - name: Mock smoke (json)
+        run: node dist/cli.js examples/suite.yaml --mock --json
+      - name: Mock smoke (json suite + fail-fast)
+        run: node dist/cli.js examples/suite.json --mock --fail-fast
