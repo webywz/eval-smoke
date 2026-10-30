@@ -190,7 +190,7 @@ if (!report.ok) process.exit(1);
 GitHub Actions in this repo runs `npm test`, `npm run build`, and `eval-smoke examples/suite.yaml --mock` on Node 18/20/22. Drop this into another project:
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.2.0 prompts/smoke.yaml --mock
+- run: npx @webywz/eval-smoke@0.2.1 prompts/smoke.yaml --mock
 ```
 
 ## License
