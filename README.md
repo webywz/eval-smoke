@@ -231,7 +231,7 @@ if (!report.ok) process.exit(1);
 GitHub Actions in this repo runs `npm test`, `npm run build`, and `eval-smoke examples/suite.yaml --mock` on Node 18/20/22. Drop this into another project:
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.3.0 prompts/smoke.yaml --mock --junit junit.xml
+- run: npx @webywz/eval-smoke@0.3.1 prompts/smoke.yaml --mock --junit junit.xml
 - uses: actions/upload-artifact@v4
   if: always()
   with:

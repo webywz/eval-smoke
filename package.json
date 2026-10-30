@@ -1,6 +1,6 @@
 {
   "name": "@webywz/eval-smoke",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "One-minute smoke evals for prompts and models — equals/json matchers, diffs, concurrency, JUnit, init.",
   "type": "module",
   "bin": {

@@ -6,15 +6,38 @@ export function asList(value?: string | string[]): string[] {
   return Array.isArray(value) ? value : [value];
 }
 
+const MAX_REGEX_SOURCE = 512;
+
 export function compileRegex(raw: string): RegExp {
-  const wrapped = raw.match(/^\/([\s\S]+)\/([gimsuy]*)$/);
-  if (wrapped?.[1] != null) {
-    return new RegExp(wrapped[1], wrapped[2]);
+  if (typeof raw !== "string" || raw.length === 0) {
+    throw new Error("regex pattern must be a non-empty string");
   }
-  if (raw.startsWith("(?i)")) {
-    return new RegExp(raw.slice(4), "i");
+  if (raw.length > MAX_REGEX_SOURCE) {
+    throw new Error(`regex pattern too long (max ${MAX_REGEX_SOURCE} chars)`);
   }
-  return new RegExp(raw);
+  try {
+    const wrapped = raw.match(/^\/([\s\S]+)\/([gimsuy]*)$/);
+    if (wrapped?.[1] != null) {
+      if (wrapped[1].length === 0) {
+        throw new Error("regex pattern must be a non-empty string");
+      }
+      return new RegExp(wrapped[1], wrapped[2]);
+    }
+    if (raw.startsWith("(?i)")) {
+      const body = raw.slice(4);
+      if (body.length === 0) {
+        throw new Error("regex pattern must be a non-empty string");
+      }
+      return new RegExp(body, "i");
+    }
+    return new RegExp(raw);
+  } catch (error) {
+    if (error instanceof Error && /non-empty|too long/.test(error.message)) {
+      throw error;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new Error(`invalid regex: ${detail}`);
+  }
 }
 
 /** Normalize for equals: NFC + CRLF→LF, strip one trailing newline. */
