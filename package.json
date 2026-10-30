@@ -1,7 +1,7 @@
 {
   "name": "@webywz/eval-smoke",
-  "version": "0.3.1",
-  "description": "One-minute smoke evals for prompts and models — equals/json matchers, diffs, concurrency, JUnit, init.",
+  "version": "0.4.0",
+  "description": "One-minute smoke evals for prompts and models \u2014 equals/json matchers, diffs, concurrency, JUnit, init.",
   "type": "module",
   "bin": {
     "eval-smoke": "dist/cli.js"

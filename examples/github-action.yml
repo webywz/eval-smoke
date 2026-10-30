@@ -1,0 +1,41 @@
+# Copy-paste: run eval-smoke in GitHub Actions (mock offline + JUnit + step summary).
+# No clone of this repo required — npx pulls @webywz/eval-smoke from npm.
+#
+# Human report → stdout (job log). JUnit → file. Markdown → $GITHUB_STEP_SUMMARY.
+
+name: Smoke eval with eval-smoke
+
+on:
+  workflow_dispatch:
+  # Or: push / pull_request when you have a suite.yaml in the repo.
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Offline smoke against the published example suite (no API key):
+      - name: Mock smoke + JUnit + step summary
+        run: |
+          npx --yes @webywz/eval-smoke --help >/dev/null
+          # Prefer a suite checked into YOUR repo; this uses the package example via init:
+          npx --yes @webywz/eval-smoke init ./eval-smoke-ci --force
+          npx --yes @webywz/eval-smoke ./eval-smoke-ci/suite.yaml \
+            --mock \
+            --junit junit-eval-smoke.xml \
+            --github-summary \
+            --update-baseline eval-smoke-baseline.json
+
+      - name: Upload JUnit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-smoke-junit
+          path: |
+            junit-eval-smoke.xml
+            eval-smoke-baseline.json

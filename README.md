@@ -25,7 +25,7 @@ eval-smoke suite.yaml --mock
 ```
 
 ```text
-eval-smoke 0.3.1  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
+eval-smoke 0.4.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
@@ -45,7 +45,8 @@ eval-smoke 0.3.1  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 | **Matchers** | `equals`, `contains`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens` |
 | **init** | `eval-smoke init` scaffolds a mock-friendly `suite.yaml` |
 | **Filter** | `--only` by id substring or `/regex/` |
-| **CI** | `--junit`, exit codes, `--fail-fast`, `--concurrency` |
+| **CI** | `--junit`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency` |
+| **Baseline** | `--baseline` / `--update-baseline` catch pass→fail regressions |
 | **Providers** | Mock offline; live OpenAI / Anthropic when keyed |
 
 ### Install
@@ -67,6 +68,9 @@ eval-smoke suite.yaml --mock --only greeting
 eval-smoke suite.yaml --mock --junit junit.xml
 eval-smoke examples/suite.yaml --mock --json
 eval-smoke examples/suite.yaml --mock --concurrency 4
+eval-smoke examples/suite.yaml --mock --update-baseline baseline.json
+eval-smoke examples/suite.yaml --mock --baseline baseline.json
+eval-smoke examples/suite.yaml --mock --github-summary
 OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 ANTHROPIC_API_KEY=sk-ant-... eval-smoke examples/suite.yaml --model claude-3-5-haiku-20241022
 ```
@@ -134,6 +138,9 @@ eval-smoke init [dir] [--force]
 | `--mock` | Offline deterministic runner |
 | `--json` | Machine-readable JSON report |
 | `--junit <path>` | Write JUnit XML (still prints human report unless `--json`) |
+| `--baseline <path>` | Exit `1` if a baseline-passing case now fails or is missing |
+| `--update-baseline <path>` | Write current report JSON (pretty) to path |
+| `--github-summary [path]` | Append pass/fail Markdown to `$GITHUB_STEP_SUMMARY` or path |
 | `--only <pattern>` | Cases whose id contains pattern, or matches `/regex/` |
 | `--fail-fast` | Stop after first failure |
 | `--concurrency <n>` | Parallel cases (default 1; ignored with `--fail-fast`) |
@@ -177,7 +184,7 @@ if (!report.ok) process.exit(1);
 ### CI snippet
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.3.1 prompts/smoke.yaml --mock --junit junit.xml
+- run: npx @webywz/eval-smoke@0.4.0 prompts/smoke.yaml --mock --junit junit.xml
 - uses: actions/upload-artifact@v4
   if: always()
   with:
@@ -215,7 +222,8 @@ eval-smoke suite.yaml --mock
 | **匹配器** | `equals`、`contains`、`not_contains`、`regex`、`json`、token 上下限 |
 | **init** | `eval-smoke init` 生成可 mock 的 `suite.yaml` |
 | **过滤** | `--only`：id 子串或 `/regex/` |
-| **CI** | `--junit`、退出码、`--fail-fast`、`--concurrency` |
+| **CI** | `--junit`、`--github-summary`、退出码、`--fail-fast`、`--concurrency` |
+| **基线** | `--baseline` / `--update-baseline` 拦住 pass→fail 回归 |
 | **提供商** | Mock 离线；有 key 时走 OpenAI / Anthropic |
 
 ### 安装
@@ -237,6 +245,9 @@ eval-smoke suite.yaml --mock --only greeting
 eval-smoke suite.yaml --mock --junit junit.xml
 eval-smoke examples/suite.yaml --mock --json
 eval-smoke examples/suite.yaml --mock --concurrency 4
+eval-smoke examples/suite.yaml --mock --update-baseline baseline.json
+eval-smoke examples/suite.yaml --mock --baseline baseline.json
+eval-smoke examples/suite.yaml --mock --github-summary
 OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 ANTHROPIC_API_KEY=sk-ant-... eval-smoke examples/suite.yaml --model claude-3-5-haiku-20241022
 ```
@@ -291,6 +302,9 @@ cases:
 | `--mock` | 离线确定性运行 |
 | `--json` | JSON 报告 |
 | `--junit <path>` | 写出 JUnit XML（仍打印人类可读报告，除非同时 `--json`） |
+| `--baseline <path>` | 基线里曾通过的用例若失败或缺失则退出 `1` |
+| `--update-baseline <path>` | 把当前报告 JSON（pretty）写入路径 |
+| `--github-summary [path]` | 追加通过/失败 Markdown 到 `$GITHUB_STEP_SUMMARY` 或指定路径 |
 | `--only <pattern>` | 按 id 子串或 `/regex/` 过滤 |
 | `--fail-fast` | 首个失败即停 |
 | `--concurrency <n>` | 并行用例数（默认 1） |
