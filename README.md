@@ -25,7 +25,7 @@ eval-smoke suite.yaml --mock
 ```
 
 ```text
-eval-smoke 0.7.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
+eval-smoke 0.7.1  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
@@ -195,8 +195,8 @@ if (!report.ok) process.exit(1);
 ### CI snippet
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.7.0 prompts/smoke.yaml --mock --junit junit.xml
-# or: npx @webywz/eval-smoke@0.7.0 prompts/smoke.yaml --mock --tap
+- run: npx @webywz/eval-smoke@0.7.1 prompts/smoke.yaml --mock --junit junit.xml
+# or: npx @webywz/eval-smoke@0.7.1 prompts/smoke.yaml --mock --tap
 - uses: actions/upload-artifact@v4
   if: always()
   with:
