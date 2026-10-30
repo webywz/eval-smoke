@@ -7,6 +7,7 @@ import { initSuite } from "./init.js";
 import { formatJUnit } from "./junit.js";
 import { loadSuite } from "./load-suite.js";
 import { compileRegex } from "./matchers.js";
+import { formatHtmlReport } from "./html-report.js";
 import { formatReport } from "./report.js";
 import { DEFAULT_TIMEOUT_MS, runSuite } from "./run.js";
 import { formatGithubSummary } from "./summary-md.js";
@@ -26,6 +27,7 @@ Options:
   --mock              Offline runner with deterministic fake answers
   --json              Machine-readable JSON report
   --junit <path>      Write JUnit XML report to path (still prints human report unless --json)
+  --html <path>       Write self-contained HTML report to path (offline, no CDN)
   --only <pattern>    Run cases whose id contains pattern, or matches /regex/
   --fail-fast         Stop after the first failing case
   --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
@@ -52,6 +54,7 @@ Examples:
   eval-smoke examples/suite.yaml --mock --only greeting
   eval-smoke examples/suite.yaml --mock --only '/^capital/'
   eval-smoke examples/suite.yaml --mock --junit junit.xml
+  eval-smoke examples/suite.yaml --mock --html report.html
   eval-smoke examples/suite.yaml --json --fail-fast
   eval-smoke examples/suite.yaml --mock --concurrency 4
   eval-smoke examples/suite.yaml --mock --update-baseline baseline.json
@@ -160,6 +163,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
         mock: { type: "boolean", default: false },
         json: { type: "boolean", default: false },
         junit: { type: "string" },
+        html: { type: "string" },
         only: { type: "string" },
         "fail-fast": { type: "boolean", default: false },
         concurrency: { type: "string" },
@@ -219,6 +223,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
     const json = asBool(values.json);
     const only = asString(values.only);
     const junitPath = asString(values.junit);
+    const htmlPath = asString(values.html);
     const baselinePath = asString(values.baseline);
     const updateBaselinePath = asString(values["update-baseline"]);
     const githubSummary = githubSummaryFlag(asString(values["github-summary"]));
@@ -239,6 +244,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
     if (junitPath != null) {
       const out = resolve(io.cwd, junitPath);
       writeFileSync(out, formatJUnit(report), "utf8");
+    }
+    if (htmlPath != null) {
+      const out = resolve(io.cwd, htmlPath);
+      writeFileSync(out, formatHtmlReport(report), "utf8");
     }
     if (updateBaselinePath != null) {
       const out = resolve(io.cwd, updateBaselinePath);
