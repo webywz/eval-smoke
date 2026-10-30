@@ -10,6 +10,7 @@ import { compileRegex } from "./matchers.js";
 import { formatHtmlReport } from "./html-report.js";
 import { redactSecrets } from "./redact.js";
 import { formatReport } from "./report.js";
+import { formatSarif } from "./sarif.js";
 import { formatTap } from "./tap.js";
 import { DEFAULT_TIMEOUT_MS, runSuite } from "./run.js";
 import { formatGithubSummary } from "./summary-md.js";
@@ -30,6 +31,7 @@ Options:
   --json              Machine-readable JSON report
   --tap               Emit TAP version 13 on stdout (one ok/not ok per case)
   --junit <path>      Write JUnit XML report to path (still prints human report unless --json/--tap)
+  --sarif <path>      Write SARIF 2.1.0 for failed cases (GitHub Code Scanning)
   --html <path>       Write self-contained HTML report to path (offline, no CDN)
   --redact            Scrub secret-looking strings (sk-/ghp_/Bearer) in printed diffs
   --only <pattern>    Run cases whose id contains pattern, or matches /regex/
@@ -169,6 +171,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
         json: { type: "boolean", default: false },
         tap: { type: "boolean", default: false },
         junit: { type: "string" },
+        sarif: { type: "string" },
         html: { type: "string" },
         redact: { type: "boolean", default: false },
         only: { type: "string" },
@@ -230,6 +233,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
     const json = asBool(values.json);
     const only = asString(values.only);
     const junitPath = asString(values.junit);
+    const sarifPath = asString(values.sarif);
     const htmlPath = asString(values.html);
     const baselinePath = asString(values.baseline);
     const updateBaselinePath = asString(values["update-baseline"]);
@@ -251,6 +255,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
     if (junitPath != null) {
       const out = resolve(io.cwd, junitPath);
       writeFileSync(out, formatJUnit(report), "utf8");
+    }
+    if (sarifPath != null) {
+      const out = resolve(io.cwd, sarifPath);
+      writeFileSync(out, formatSarif(report), "utf8");
     }
     if (htmlPath != null) {
       const out = resolve(io.cwd, htmlPath);
@@ -293,6 +301,15 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       io.stdout.write(redact ? redactSecrets(tapOut) : tapOut);
     } else {
       io.stdout.write(formatReport(report, { json, color, redact }));
+    }
+    if (
+      report.budget_usd != null &&
+      report.cost_usd != null &&
+      report.cost_usd > report.budget_usd
+    ) {
+      io.stderr.write(
+        `suite cost ${report.cost_usd} exceeds budget_usd ${report.budget_usd}\n`,
+      );
     }
     if (baselineFailed) return 1;
     return report.ok ? 0 : 1;

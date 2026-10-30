@@ -60,7 +60,8 @@ export function hasMatchers(expect: Expect): boolean {
     expect.json != null ||
     expect.max_tokens != null ||
     expect.min_tokens != null ||
-    expect.max_latency_ms != null
+    expect.max_latency_ms != null ||
+    expect.max_cost_usd != null
   );
 }
 
@@ -141,6 +142,8 @@ function evaluateJson(output: string, expect: JsonExpect): CheckResult {
 export interface EvaluateOptions {
   /** Measured case duration in ms (for max_latency_ms). */
   durationMs?: number;
+  /** Estimated case cost in USD (for max_cost_usd). */
+  costUsd?: number;
 }
 
 export function evaluateExpect(
@@ -301,6 +304,20 @@ export function evaluateExpect(
       detail: ok
         ? undefined
         : `${duration}ms exceeds max_latency_ms ${expect.max_latency_ms}`,
+    });
+  }
+
+  if (expect.max_cost_usd != null) {
+    const cost = options.costUsd ?? 0;
+    const ok = cost <= expect.max_cost_usd;
+    checks.push({
+      name: "max_cost_usd",
+      ok,
+      expected: String(expect.max_cost_usd),
+      actual: String(cost),
+      detail: ok
+        ? undefined
+        : `estimated ${cost} exceeds max_cost_usd ${expect.max_cost_usd}`,
     });
   }
 

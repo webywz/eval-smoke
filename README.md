@@ -25,7 +25,7 @@ eval-smoke suite.yaml --mock
 ```
 
 ```text
-eval-smoke 0.7.1  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
+eval-smoke 0.8.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
@@ -42,10 +42,10 @@ eval-smoke 0.7.1  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 | | |
 | --- | --- |
 | **Tiny suite** | A handful of cases — not a full harness |
-| **Matchers** | `equals`, `contains`, `contains_any` / `contains_all`, `starts_with` / `ends_with`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens`, `max_latency_ms` |
+| **Matchers** | `equals`, `contains`, `contains_any` / `contains_all`, `starts_with` / `ends_with`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens`, `max_latency_ms`, `max_cost_usd` |
 | **init** | `eval-smoke init` scaffolds a mock-friendly `suite.yaml` |
 | **Filter** | `--only` by id substring or `/regex/` |
-| **CI** | `--junit`, `--tap`, `--html`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency` |
+| **CI** | `--junit`, `--tap`, `--sarif`, `--html`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency`; suite `budget_usd` |
 | **Baseline** | `--baseline` / `--update-baseline` catch pass→fail regressions |
 | **Providers** | Mock offline; live OpenAI / Anthropic when keyed |
 
@@ -107,6 +107,7 @@ cases:
       min_tokens: 1
       max_tokens: 32
       # max_latency_ms: 5000
+      # max_cost_usd: 0.01
 
   - id: json-city
     prompt: Reply with JSON {"city":"Paris"} only.
@@ -128,6 +129,8 @@ cases:
 | `expect.json` | `true` = parseable; object/array = deep-equal |
 | `expect.min_tokens` / `max_tokens` | Approx via `ceil(chars / 4)` |
 | `expect.max_latency_ms` | Fail if measured case `duration_ms` exceeds budget |
+| `expect.max_cost_usd` | Fail if estimated case cost (USD, built-in unit-price table) exceeds budget |
+| `budget_usd` (suite) | Fail suite if sum of estimated case costs exceeds USD budget |
 | `system` / `model` | Suite or case |
 | `provider` | `openai`, `anthropic`, or `mock` |
 
@@ -146,6 +149,7 @@ eval-smoke init [dir] [--force]
 | `--json` | Machine-readable JSON report |
 | `--tap` | Emit TAP version 13 on stdout (one ok/not ok per case) |
 | `--junit <path>` | Write JUnit XML (still prints human report unless `--json`/`--tap`) |
+| `--sarif <path>` | Write SARIF 2.1.0 for failed cases (GitHub Code Scanning) |
 | `--html <path>` | Write self-contained HTML report (offline, no CDN) |
 | `--redact` | Scrub secret-looking strings (`sk-`/`ghp_`/`Bearer`) in printed diffs |
 | `--baseline <path>` | Exit `1` if a baseline-passing case now fails or is missing |
@@ -195,8 +199,8 @@ if (!report.ok) process.exit(1);
 ### CI snippet
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.7.1 prompts/smoke.yaml --mock --junit junit.xml
-# or: npx @webywz/eval-smoke@0.7.1 prompts/smoke.yaml --mock --tap
+- run: npx @webywz/eval-smoke@0.8.0 prompts/smoke.yaml --mock --junit junit.xml
+# or: npx @webywz/eval-smoke@0.8.0 prompts/smoke.yaml --mock --tap
 - uses: actions/upload-artifact@v4
   if: always()
   with:
@@ -231,10 +235,10 @@ eval-smoke suite.yaml --mock
 | | |
 | --- | --- |
 | **轻量套件** | 少量用例，不是完整评测框架 |
-| **匹配器** | `equals`、`contains`、`contains_any` / `contains_all`、`starts_with` / `ends_with`、`not_contains`、`regex`、`json`、token 上下限、`max_latency_ms` |
+| **匹配器** | `equals`、`contains`、`contains_any` / `contains_all`、`starts_with` / `ends_with`、`not_contains`、`regex`、`json`、token 上下限、`max_latency_ms`、`max_cost_usd` |
 | **init** | `eval-smoke init` 生成可 mock 的 `suite.yaml` |
 | **过滤** | `--only`：id 子串或 `/regex/` |
-| **CI** | `--junit`、`--tap`、`--html`、`--github-summary`、退出码、`--fail-fast`、`--concurrency` |
+| **CI** | `--junit`、`--tap`、`--sarif`、`--html`、`--github-summary`、退出码、`--fail-fast`、`--concurrency`；套件 `budget_usd` |
 | **基线** | `--baseline` / `--update-baseline` 拦住 pass→fail 回归 |
 | **提供商** | Mock 离线；有 key 时走 OpenAI / Anthropic |
 
@@ -309,6 +313,8 @@ cases:
 | `expect.json` | `true` = 可解析；对象/数组 = 深相等 |
 | `expect.min_tokens` / `max_tokens` | 约 `ceil(chars / 4)` |
 | `expect.max_latency_ms` | 实测 `duration_ms` 超过预算则失败 |
+| `expect.max_cost_usd` | 估算费用（USD，内置单价表）超过预算则失败 |
+| `budget_usd`（套件） | 全套估算费用之和超过 USD 预算则失败 |
 | `system` / `model` | 套件级或用例级 |
 | `provider` | `openai` / `anthropic` / `mock` |
 
@@ -322,6 +328,7 @@ cases:
 | `--json` | JSON 报告 |
 | `--tap` | 向 stdout 输出 TAP version 13（每用例一行 ok/not ok） |
 | `--junit <path>` | 写出 JUnit XML（仍打印人类可读报告，除非同时 `--json`/`--tap`） |
+| `--sarif <path>` | 将失败用例写成 SARIF 2.1.0（GitHub Code Scanning） |
 | `--html <path>` | 写入自包含 HTML 报告（离线、无 CDN） |
 | `--redact` | 打印 diff 时擦除疑似密钥（`sk-`/`ghp_`/`Bearer`） |
 | `--baseline <path>` | 基线里曾通过的用例若失败或缺失则退出 `1` |

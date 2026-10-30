@@ -25,6 +25,8 @@ export interface Expect {
   min_tokens?: number;
   /** Fail if measured case duration_ms exceeds this budget. */
   max_latency_ms?: number;
+  /** Fail if estimated case cost (USD, rough unit-price table) exceeds this. */
+  max_cost_usd?: number;
 }
 
 export interface Case {
@@ -40,6 +42,8 @@ export interface Suite {
   model?: string;
   provider?: ProviderName;
   system?: string;
+  /** Fail the suite if sum of estimated case costs exceeds this USD budget. */
+  budget_usd?: number;
   cases: Case[];
 }
 
@@ -65,7 +69,8 @@ export type CheckName =
   | "json"
   | "max_tokens"
   | "min_tokens"
-  | "max_latency_ms";
+  | "max_latency_ms"
+  | "max_cost_usd";
 
 export interface CheckResult {
   name: CheckName;
@@ -84,6 +89,8 @@ export interface CaseResult {
   output?: string;
   error?: string;
   checks?: CheckResult[];
+  /** Estimated USD cost from built-in unit-price table (offline). */
+  cost_usd?: number;
 }
 
 export interface Report {
@@ -96,6 +103,10 @@ export interface Report {
   failed: number;
   skipped: number;
   duration_ms: number;
+  /** Sum of estimated case costs (USD). */
+  cost_usd?: number;
+  /** Suite-level budget that was applied, if any. */
+  budget_usd?: number;
   cases: CaseResult[];
 }
 
