@@ -1,6 +1,8 @@
 export { loadSuite, parseSuite } from "./load-suite.js";
 export { initSuite, INIT_SUITE_FILENAME, INIT_SUITE_YAML } from "./init.js";
 export { formatJUnit } from "./junit.js";
+export { formatTap } from "./tap.js";
+export { redactSecrets } from "./redact.js";
 export { evaluateCase, evaluateExpect, equalsDiff, normalizeEquals } from "./matchers.js";
 export { createComplete, mockComplete, resolveProvider } from "./providers.js";
 export { formatReport } from "./report.js";

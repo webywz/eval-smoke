@@ -1,3 +1,4 @@
+import { redactSecrets } from "./redact.js";
 import type { CaseResult, CheckResult, Report } from "./types.js";
 
 const RESET = "\u001b[0m";
@@ -9,6 +10,8 @@ const DIM = "\u001b[2m";
 export interface FormatOptions {
   json?: boolean;
   color?: boolean;
+  /** Scrub secret-looking strings in printed diffs. */
+  redact?: boolean;
 }
 
 function paint(enabled: boolean, color: string, text: string): string {
@@ -73,7 +76,8 @@ function formatCase(result: CaseResult, color: boolean): string[] {
 
 export function formatReport(report: Report, options: FormatOptions = {}): string {
   if (options.json) {
-    return `${JSON.stringify(report, null, 2)}\n`;
+    const body = JSON.stringify(report, null, 2);
+    return `${options.redact ? redactSecrets(body) : body}\n`;
   }
 
   const color = Boolean(options.color);
@@ -96,5 +100,6 @@ export function formatReport(report: Report, options: FormatOptions = {}): strin
   lines.push("");
   lines.push(report.ok ? paint(color, GREEN, summary) : paint(color, RED, summary));
   lines.push("");
-  return lines.join("\n");
+  const text = lines.join("\n");
+  return options.redact ? redactSecrets(text) : text;
 }

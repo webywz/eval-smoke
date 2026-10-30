@@ -8,7 +8,9 @@ import { formatJUnit } from "./junit.js";
 import { loadSuite } from "./load-suite.js";
 import { compileRegex } from "./matchers.js";
 import { formatHtmlReport } from "./html-report.js";
+import { redactSecrets } from "./redact.js";
 import { formatReport } from "./report.js";
+import { formatTap } from "./tap.js";
 import { DEFAULT_TIMEOUT_MS, runSuite } from "./run.js";
 import { formatGithubSummary } from "./summary-md.js";
 import { UsageError, type ProviderName, type Suite } from "./types.js";
@@ -26,8 +28,10 @@ Usage:
 Options:
   --mock              Offline runner with deterministic fake answers
   --json              Machine-readable JSON report
-  --junit <path>      Write JUnit XML report to path (still prints human report unless --json)
+  --tap               Emit TAP version 13 on stdout (one ok/not ok per case)
+  --junit <path>      Write JUnit XML report to path (still prints human report unless --json/--tap)
   --html <path>       Write self-contained HTML report to path (offline, no CDN)
+  --redact            Scrub secret-looking strings (sk-/ghp_/Bearer) in printed diffs
   --only <pattern>    Run cases whose id contains pattern, or matches /regex/
   --fail-fast         Stop after the first failing case
   --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
@@ -54,6 +58,7 @@ Examples:
   eval-smoke examples/suite.yaml --mock --only greeting
   eval-smoke examples/suite.yaml --mock --only '/^capital/'
   eval-smoke examples/suite.yaml --mock --junit junit.xml
+  eval-smoke examples/suite.yaml --mock --tap
   eval-smoke examples/suite.yaml --mock --html report.html
   eval-smoke examples/suite.yaml --json --fail-fast
   eval-smoke examples/suite.yaml --mock --concurrency 4
@@ -162,8 +167,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       options: {
         mock: { type: "boolean", default: false },
         json: { type: "boolean", default: false },
+        tap: { type: "boolean", default: false },
         junit: { type: "string" },
         html: { type: "string" },
+        redact: { type: "boolean", default: false },
         only: { type: "string" },
         "fail-fast": { type: "boolean", default: false },
         concurrency: { type: "string" },
@@ -276,9 +283,17 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       }
     }
 
+    const tap = asBool(values.tap);
+    const redact = asBool(values.redact);
     const noColor = asBool(values["no-color"]) || Boolean(io.env.NO_COLOR);
-    const color = io.isTTY && !json && !noColor;
-    io.stdout.write(formatReport(report, { json, color }));
+    const color = io.isTTY && !json && !tap && !noColor;
+
+    if (tap) {
+      const tapOut = formatTap(report);
+      io.stdout.write(redact ? redactSecrets(tapOut) : tapOut);
+    } else {
+      io.stdout.write(formatReport(report, { json, color, redact }));
+    }
     if (baselineFailed) return 1;
     return report.ok ? 0 : 1;
   } catch (error) {

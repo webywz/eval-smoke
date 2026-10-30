@@ -8,9 +8,9 @@
 >
 > **一分钟烟雾测试：在发版前拦住 prompt / 模型回归。**
 
-YAML or JSON in. Pass/fail out. Exit `1` on regression. Optional JUnit for CI.
+YAML or JSON in. Pass/fail out. Exit `1` on regression. JUnit, TAP, HTML, and latency budgets for CI.
 
-YAML 或 JSON 进，通过/失败出。回归时退出码 `1`。可选 JUnit 对接 CI。
+YAML 或 JSON 进，通过/失败出。回归时退出码 `1`。JUnit、TAP、HTML、延迟预算对接 CI。
 
 ---
 
@@ -25,7 +25,7 @@ eval-smoke suite.yaml --mock
 ```
 
 ```text
-eval-smoke 0.5.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
+eval-smoke 0.7.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
@@ -42,10 +42,10 @@ eval-smoke 0.5.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 | | |
 | --- | --- |
 | **Tiny suite** | A handful of cases — not a full harness |
-| **Matchers** | `equals`, `contains`, `contains_any` / `contains_all`, `starts_with` / `ends_with`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens` |
+| **Matchers** | `equals`, `contains`, `contains_any` / `contains_all`, `starts_with` / `ends_with`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens`, `max_latency_ms` |
 | **init** | `eval-smoke init` scaffolds a mock-friendly `suite.yaml` |
 | **Filter** | `--only` by id substring or `/regex/` |
-| **CI** | `--junit`, `--html`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency` |
+| **CI** | `--junit`, `--tap`, `--html`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency` |
 | **Baseline** | `--baseline` / `--update-baseline` catch pass→fail regressions |
 | **Providers** | Mock offline; live OpenAI / Anthropic when keyed |
 
@@ -66,6 +66,7 @@ eval-smoke init
 eval-smoke suite.yaml --mock
 eval-smoke suite.yaml --mock --only greeting
 eval-smoke suite.yaml --mock --junit junit.xml
+eval-smoke suite.yaml --mock --tap
 eval-smoke suite.yaml --mock --html report.html
 eval-smoke examples/suite.yaml --mock --json
 eval-smoke examples/suite.yaml --mock --concurrency 4
@@ -105,6 +106,7 @@ cases:
       regex: "(?i)^hello\\b"
       min_tokens: 1
       max_tokens: 32
+      # max_latency_ms: 5000
 
   - id: json-city
     prompt: Reply with JSON {"city":"Paris"} only.
@@ -125,6 +127,7 @@ cases:
 | `expect.equals` | Exact after NFC + LF normalize |
 | `expect.json` | `true` = parseable; object/array = deep-equal |
 | `expect.min_tokens` / `max_tokens` | Approx via `ceil(chars / 4)` |
+| `expect.max_latency_ms` | Fail if measured case `duration_ms` exceeds budget |
 | `system` / `model` | Suite or case |
 | `provider` | `openai`, `anthropic`, or `mock` |
 
@@ -141,8 +144,10 @@ eval-smoke init [dir] [--force]
 | --- | --- |
 | `--mock` | Offline deterministic runner |
 | `--json` | Machine-readable JSON report |
-| `--junit <path>` | Write JUnit XML (still prints human report unless `--json`) |
+| `--tap` | Emit TAP version 13 on stdout (one ok/not ok per case) |
+| `--junit <path>` | Write JUnit XML (still prints human report unless `--json`/`--tap`) |
 | `--html <path>` | Write self-contained HTML report (offline, no CDN) |
+| `--redact` | Scrub secret-looking strings (`sk-`/`ghp_`/`Bearer`) in printed diffs |
 | `--baseline <path>` | Exit `1` if a baseline-passing case now fails or is missing |
 | `--update-baseline <path>` | Write current report JSON (pretty) to path |
 | `--github-summary [path]` | Append pass/fail Markdown to `$GITHUB_STEP_SUMMARY` or path |
@@ -177,19 +182,21 @@ eval-smoke init [dir] [--force]
 ### Library
 
 ```ts
-import { loadSuite, runSuite, formatJUnit, initSuite } from "@webywz/eval-smoke";
+import { loadSuite, runSuite, formatJUnit, formatTap, initSuite } from "@webywz/eval-smoke";
 
 initSuite(".", { force: false });
 const suite = loadSuite("suite.yaml");
 const report = await runSuite(suite, { mock: true, concurrency: 4 });
 console.log(formatJUnit(report));
+// or: console.log(formatTap(report));
 if (!report.ok) process.exit(1);
 ```
 
 ### CI snippet
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.5.0 prompts/smoke.yaml --mock --junit junit.xml
+- run: npx @webywz/eval-smoke@0.7.0 prompts/smoke.yaml --mock --junit junit.xml
+# or: npx @webywz/eval-smoke@0.7.0 prompts/smoke.yaml --mock --tap
 - uses: actions/upload-artifact@v4
   if: always()
   with:
@@ -224,10 +231,10 @@ eval-smoke suite.yaml --mock
 | | |
 | --- | --- |
 | **轻量套件** | 少量用例，不是完整评测框架 |
-| **匹配器** | `equals`、`contains`、`contains_any` / `contains_all`、`starts_with` / `ends_with`、`not_contains`、`regex`、`json`、token 上下限 |
+| **匹配器** | `equals`、`contains`、`contains_any` / `contains_all`、`starts_with` / `ends_with`、`not_contains`、`regex`、`json`、token 上下限、`max_latency_ms` |
 | **init** | `eval-smoke init` 生成可 mock 的 `suite.yaml` |
 | **过滤** | `--only`：id 子串或 `/regex/` |
-| **CI** | `--junit`、`--html`、`--github-summary`、退出码、`--fail-fast`、`--concurrency` |
+| **CI** | `--junit`、`--tap`、`--html`、`--github-summary`、退出码、`--fail-fast`、`--concurrency` |
 | **基线** | `--baseline` / `--update-baseline` 拦住 pass→fail 回归 |
 | **提供商** | Mock 离线；有 key 时走 OpenAI / Anthropic |
 
@@ -248,6 +255,7 @@ eval-smoke init
 eval-smoke suite.yaml --mock
 eval-smoke suite.yaml --mock --only greeting
 eval-smoke suite.yaml --mock --junit junit.xml
+eval-smoke suite.yaml --mock --tap
 eval-smoke suite.yaml --mock --html report.html
 eval-smoke examples/suite.yaml --mock --json
 eval-smoke examples/suite.yaml --mock --concurrency 4
@@ -285,6 +293,7 @@ cases:
       regex: "(?i)^hello\\b"
       min_tokens: 1
       max_tokens: 32
+      # max_latency_ms: 5000
 ```
 
 | 字段 | 说明 |
@@ -299,6 +308,7 @@ cases:
 | `expect.equals` | NFC + LF 规范化后精确匹配 |
 | `expect.json` | `true` = 可解析；对象/数组 = 深相等 |
 | `expect.min_tokens` / `max_tokens` | 约 `ceil(chars / 4)` |
+| `expect.max_latency_ms` | 实测 `duration_ms` 超过预算则失败 |
 | `system` / `model` | 套件级或用例级 |
 | `provider` | `openai` / `anthropic` / `mock` |
 
@@ -310,8 +320,10 @@ cases:
 | --- | --- |
 | `--mock` | 离线确定性运行 |
 | `--json` | JSON 报告 |
-| `--junit <path>` | 写出 JUnit XML（仍打印人类可读报告，除非同时 `--json`） |
+| `--tap` | 向 stdout 输出 TAP version 13（每用例一行 ok/not ok） |
+| `--junit <path>` | 写出 JUnit XML（仍打印人类可读报告，除非同时 `--json`/`--tap`） |
 | `--html <path>` | 写入自包含 HTML 报告（离线、无 CDN） |
+| `--redact` | 打印 diff 时擦除疑似密钥（`sk-`/`ghp_`/`Bearer`） |
 | `--baseline <path>` | 基线里曾通过的用例若失败或缺失则退出 `1` |
 | `--update-baseline <path>` | 把当前报告 JSON（pretty）写入路径 |
 | `--github-summary [path]` | 追加通过/失败 Markdown 到 `$GITHUB_STEP_SUMMARY` 或指定路径 |
@@ -337,7 +349,7 @@ cases:
 ### 库用法
 
 ```ts
-import { loadSuite, runSuite, formatJUnit, initSuite } from "@webywz/eval-smoke";
+import { loadSuite, runSuite, formatJUnit, formatTap, initSuite } from "@webywz/eval-smoke";
 
 initSuite(".", { force: false });
 const suite = loadSuite("suite.yaml");

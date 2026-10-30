@@ -9,6 +9,7 @@ cases:
       equals: Hello
       min_tokens: 1
       max_tokens: 32
+      # max_latency_ms: 5000
 
   - id: capital-france
     prompt: What is the capital of France? Answer with the city name only.

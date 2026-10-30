@@ -62,11 +62,12 @@ async function runCase(
         signal,
       }),
     );
-    const checks = evaluateCase(output, testCase);
+    const duration_ms = Math.round(performance.now() - started);
+    const checks = evaluateCase(output, testCase, { durationMs: duration_ms });
     return {
       id: testCase.id,
       ok: checks.every((check) => check.ok),
-      duration_ms: Math.round(performance.now() - started),
+      duration_ms,
       output,
       checks,
     };

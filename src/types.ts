@@ -23,6 +23,8 @@ export interface Expect {
   json?: JsonExpect;
   max_tokens?: number;
   min_tokens?: number;
+  /** Fail if measured case duration_ms exceeds this budget. */
+  max_latency_ms?: number;
 }
 
 export interface Case {
@@ -62,7 +64,8 @@ export type CheckName =
   | "equals"
   | "json"
   | "max_tokens"
-  | "min_tokens";
+  | "min_tokens"
+  | "max_latency_ms";
 
 export interface CheckResult {
   name: CheckName;
