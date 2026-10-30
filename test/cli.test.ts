@@ -206,4 +206,39 @@ describe("runCli", () => {
       rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  test("--help lists ollama and openai-compat providers", async () => {
+    const cap = captureIo();
+    const code = await runCli(["--help"], cap.io);
+    assert.equal(code, 0);
+    assert.match(cap.stdout(), /ollama/);
+    assert.match(cap.stdout(), /openai-compat/);
+    assert.match(cap.stdout(), /--base-url/);
+  });
+
+  test("accepts --provider ollama|openai-compat (no key for ollama)", async () => {
+    const cap = captureIo({ OPENAI_API_KEY: "", ANTHROPIC_API_KEY: "" });
+    delete cap.io.env.OPENAI_API_KEY;
+    delete cap.io.env.ANTHROPIC_API_KEY;
+    // ollama needs network; force mock via suite with --mock still works with provider flag rejected only if invalid
+    const bad = await runCli(["examples/suite.yaml", "--mock", "--provider", "vllm"], cap.io);
+    assert.equal(bad, 2);
+    assert.match(cap.stderr(), /--provider must be/);
+
+    const cap2 = captureIo();
+    const ok = await runCli(
+      ["examples/suite.yaml", "--mock", "--provider", "ollama", "--base-url", "http://127.0.0.1:11434/v1"],
+      cap2.io,
+    );
+    assert.equal(ok, 0);
+    assert.match(cap2.stdout(), /passed/);
+  });
+
+  test("rejects unknown --provider", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--provider", "bedrock"], cap.io);
+    assert.equal(code, 2);
+    assert.match(cap.stderr(), /openai-compat/);
+  });
+
 });

@@ -39,7 +39,8 @@ Options:
   --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
   --timeout <ms>      Per-case timeout (default: ${DEFAULT_TIMEOUT_MS})
   --model <name>      Override suite model
-  --provider <name>   openai | anthropic | mock
+  --provider <name>   openai | anthropic | mock | ollama | openai-compat
+  --base-url <url>    Override suite/env base URL (ollama / openai-compat / openai)
   --baseline <path>   Fail if any baseline-passing case now fails or is missing
   --update-baseline <path>  Write current report JSON to path (pretty)
   --github-summary [path]   Append Markdown to GITHUB_STEP_SUMMARY or path
@@ -68,6 +69,7 @@ Examples:
   eval-smoke examples/suite.yaml --mock --baseline baseline.json
   eval-smoke examples/suite.yaml --mock --github-summary
   OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
+  eval-smoke suite.yaml --provider ollama --base-url http://127.0.0.1:11434/v1
 `;
 
 export interface CliIo {
@@ -106,8 +108,18 @@ function parseConcurrency(raw: string | undefined): number | undefined {
 
 function parseProvider(raw: string | undefined): ProviderName | undefined {
   if (raw == null) return undefined;
-  if (raw === "mock" || raw === "openai" || raw === "anthropic") return raw;
-  throw new UsageError("--provider must be openai, anthropic, or mock");
+  if (
+    raw === "mock" ||
+    raw === "openai" ||
+    raw === "anthropic" ||
+    raw === "ollama" ||
+    raw === "openai-compat"
+  ) {
+    return raw;
+  }
+  throw new UsageError(
+    "--provider must be openai, anthropic, mock, ollama, or openai-compat",
+  );
 }
 
 /** Match case ids by substring, or by /regex/ flags (same style as matchers). */
@@ -180,6 +192,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
         timeout: { type: "string" },
         model: { type: "string" },
         provider: { type: "string" },
+        "base-url": { type: "string" },
         baseline: { type: "string" },
         "update-baseline": { type: "string" },
         "github-summary": { type: "string" },
@@ -247,6 +260,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       mock: asBool(values.mock),
       provider: parseProvider(asString(values.provider)),
       model: asString(values.model),
+      baseUrl: asString(values["base-url"]),
       failFast: asBool(values["fail-fast"]),
       concurrency: parseConcurrency(asString(values.concurrency)),
       timeoutMs: parseTimeout(asString(values.timeout)),

@@ -47,7 +47,7 @@ eval-smoke 0.8.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 | **Filter** | `--only` by id substring or `/regex/` |
 | **CI** | `--junit`, `--tap`, `--sarif`, `--html`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency`; suite `budget_usd` |
 | **Baseline** | `--baseline` / `--update-baseline` catch pass→fail regressions |
-| **Providers** | Mock offline; live OpenAI / Anthropic when keyed |
+| **Providers** | Mock offline; live OpenAI / Anthropic when keyed; suite/CLI `ollama` / `openai-compat` + `base_url` / `--base-url` |
 
 ### Install
 
@@ -75,6 +75,7 @@ eval-smoke examples/suite.yaml --mock --baseline baseline.json
 eval-smoke examples/suite.yaml --mock --github-summary
 OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 ANTHROPIC_API_KEY=sk-ant-... eval-smoke examples/suite.yaml --model claude-3-5-haiku-20241022
+eval-smoke suite.yaml --provider ollama --base-url http://127.0.0.1:11434/v1
 ```
 
 ### `eval-smoke init`
@@ -94,7 +95,8 @@ YAML or JSON — a list of cases, or an object with `cases`:
 ```yaml
 name: demo
 model: gpt-4o-mini
-# provider: openai          # optional: openai | anthropic | mock
+# provider: openai          # optional: openai | anthropic | mock | ollama | openai-compat
+# base_url: http://127.0.0.1:11434/v1   # for ollama / openai-compat
 # system: You are concise.
 cases:
   - id: greeting
@@ -132,7 +134,8 @@ cases:
 | `expect.max_cost_usd` | Fail if estimated case cost (USD, built-in unit-price table) exceeds budget |
 | `budget_usd` (suite) | Fail suite if sum of estimated case costs exceeds USD budget |
 | `system` / `model` | Suite or case |
-| `provider` | `openai`, `anthropic`, or `mock` |
+| `provider` | `openai`, `anthropic`, `mock`, `ollama`, or `openai-compat` |
+| `base_url` | Local / OpenAI-compatible chat base (Ollama default `http://127.0.0.1:11434/v1`) |
 
 At least one matcher per case. Failures print expected/actual (and a first-diff for `equals`).
 
@@ -160,7 +163,8 @@ eval-smoke init [dir] [--force]
 | `--concurrency <n>` | Parallel cases (default 1; ignored with `--fail-fast`) |
 | `--timeout <ms>` | Per-case timeout (default 30000) |
 | `--model <name>` | Override suite model |
-| `--provider <name>` | `openai` \| `anthropic` \| `mock` |
+| `--provider <name>` | `openai` \| `anthropic` \| `mock` \| `ollama` \| `openai-compat` |
+| `--base-url <url>` | Override suite/env base URL for ollama / openai-compat / openai |
 | `--force` | Overwrite for `init` |
 | `--no-color` | Disable ANSI (`NO_COLOR` respected) |
 
@@ -219,9 +223,9 @@ if (!report.ok) process.exit(1);
 ---
 
 
-### Local inference (0.9)
+### Local inference (0.9 / 0.10)
 
-Suite fields for local / OpenAI-compatible servers:
+Suite fields **and** CLI for local / OpenAI-compatible servers:
 
 ```yaml
 provider: ollama          # or openai-compat
@@ -229,15 +233,21 @@ base_url: http://127.0.0.1:11434/v1
 model: llama3.2
 ```
 
+```bash
+eval-smoke suite.yaml --provider ollama --base-url http://127.0.0.1:11434/v1
+eval-smoke suite.yaml --provider openai-compat --base-url http://127.0.0.1:8080/v1
+```
+
 - `ollama` — defaults `base_url` to `http://127.0.0.1:11434/v1` (no API key required)
-- `openai-compat` — requires `base_url` (or `OPENAI_BASE_URL`); uses OpenAI chat completions shape
+- `openai-compat` — requires `base_url`, `--base-url`, or `OPENAI_BASE_URL`; OpenAI chat completions shape
+- CLI `--provider` / `--help` list `ollama` \| `openai-compat`; `--base-url` overrides suite/env
 
 
 ## 中文
 
-### 本地推理（0.9）
+### 本地推理（0.9 / 0.10）
 
-套件可设 `provider: ollama|openai-compat` 与 `base_url`（Ollama 默认 `http://127.0.0.1:11434/v1`；`openai-compat` 需 `base_url` 或 `OPENAI_BASE_URL`）。
+套件可设 `provider: ollama|openai-compat` 与 `base_url`；CLI 同步支持 `--provider ollama|openai-compat` 与 `--base-url`（Ollama 默认 `http://127.0.0.1:11434/v1`；`openai-compat` 需 `base_url` / `--base-url` / `OPENAI_BASE_URL`）。
 
 
 ### 演示
@@ -260,7 +270,7 @@ eval-smoke suite.yaml --mock
 | **过滤** | `--only`：id 子串或 `/regex/` |
 | **CI** | `--junit`、`--tap`、`--sarif`、`--html`、`--github-summary`、退出码、`--fail-fast`、`--concurrency`；套件 `budget_usd` |
 | **基线** | `--baseline` / `--update-baseline` 拦住 pass→fail 回归 |
-| **提供商** | Mock 离线；有 key 时走 OpenAI / Anthropic |
+| **提供商** | Mock 离线；有 key 时走 OpenAI / Anthropic；套件/CLI 支持 `ollama` / `openai-compat` + `base_url` / `--base-url` |
 
 ### 安装
 
@@ -288,6 +298,7 @@ eval-smoke examples/suite.yaml --mock --baseline baseline.json
 eval-smoke examples/suite.yaml --mock --github-summary
 OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 ANTHROPIC_API_KEY=sk-ant-... eval-smoke examples/suite.yaml --model claude-3-5-haiku-20241022
+eval-smoke suite.yaml --provider ollama --base-url http://127.0.0.1:11434/v1
 ```
 
 ### `eval-smoke init`
@@ -336,7 +347,8 @@ cases:
 | `expect.max_cost_usd` | 估算费用（USD，内置单价表）超过预算则失败 |
 | `budget_usd`（套件） | 全套估算费用之和超过 USD 预算则失败 |
 | `system` / `model` | 套件级或用例级 |
-| `provider` | `openai` / `anthropic` / `mock` |
+| `provider` | `openai` / `anthropic` / `mock` / `ollama` / `openai-compat` |
+| `base_url` | 本地 / OpenAI 兼容 chat 基址（Ollama 默认 `http://127.0.0.1:11434/v1`） |
 
 每个用例至少要有一个匹配器。失败时打印期望/实际（`equals` 还有首差位置）。
 
@@ -358,7 +370,8 @@ cases:
 | `--fail-fast` | 首个失败即停 |
 | `--concurrency <n>` | 并行用例数（默认 1） |
 | `--timeout <ms>` | 单用例超时（默认 30000） |
-| `--model` / `--provider` | 覆盖模型 / 提供商 |
+| `--model` / `--provider` | 覆盖模型 / 提供商（`openai`/`anthropic`/`mock`/`ollama`/`openai-compat`） |
+| `--base-url <url>` | 覆盖套件/环境 base URL（ollama / openai-compat / openai） |
 | `--force` | `init` 时覆盖 |
 
 | 退出码 | 含义 |
