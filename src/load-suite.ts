@@ -11,7 +11,7 @@ import {
   type Suite,
 } from "./types.js";
 
-const PROVIDERS = new Set<ProviderName>(["mock", "openai", "anthropic"]);
+const PROVIDERS = new Set<ProviderName>(["mock", "openai", "anthropic", "ollama", "openai-compat"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -175,6 +175,7 @@ export function parseSuite(raw: unknown): Suite {
   let name: string | undefined;
   let model: string | undefined;
   let provider: ProviderName | undefined;
+  let base_url: string | undefined;
   let system: string | undefined;
   let budget_usd: number | undefined;
   let caseList: unknown[];
@@ -185,6 +186,7 @@ export function parseSuite(raw: unknown): Suite {
     name = optionalString(raw.name, "suite name");
     model = optionalString(raw.model, "suite model");
     provider = parseProvider(raw.provider);
+    base_url = optionalString(raw.base_url, "suite base_url");
     system = optionalString(raw.system, "suite system");
     if (raw.budget_usd != null) {
       budget_usd = parsePositiveNumber(raw.budget_usd, "suite budget_usd");
@@ -213,7 +215,7 @@ export function parseSuite(raw: unknown): Suite {
     seen.add(testCase.id);
   }
 
-  return { name, model, provider, system, budget_usd, cases };
+  return { name, model, provider, base_url, system, budget_usd, cases };
 }
 
 function parseDocument(text: string, source: string): unknown {

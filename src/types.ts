@@ -1,4 +1,4 @@
-export type ProviderName = "mock" | "openai" | "anthropic";
+export type ProviderName = "mock" | "openai" | "anthropic" | "ollama" | "openai-compat";
 
 export type StringList = string | string[];
 
@@ -41,6 +41,8 @@ export interface Suite {
   name?: string;
   model?: string;
   provider?: ProviderName;
+  /** OpenAI-compat / Ollama base URL (e.g. http://127.0.0.1:11434/v1). */
+  base_url?: string;
   system?: string;
   /** Fail the suite if sum of estimated case costs exceeds this USD budget. */
   budget_usd?: number;
@@ -119,6 +121,8 @@ export interface RunOptions {
   /** Run up to N cases at once (default 1). Ignored when failFast is set. */
   concurrency?: number;
   complete?: CompleteFn;
+  /** Override suite/env base URL for openai-compat / ollama / openai. */
+  baseUrl?: string;
   env?: NodeJS.ProcessEnv;
   fetch?: typeof fetch;
 }

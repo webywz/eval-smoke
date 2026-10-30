@@ -13,6 +13,8 @@ const MOCK_FIXTURES: Array<{ match: RegExp; reply: string }> = [
 export const DEFAULT_MODELS: Record<Exclude<ProviderName, "mock">, string> = {
   openai: "gpt-4o-mini",
   anthropic: "claude-3-5-haiku-20241022",
+  ollama: "llama3.2",
+  "openai-compat": "gpt-4o-mini",
 };
 
 export function mockComplete(request: CompleteRequest): Promise<string> {
@@ -169,14 +171,34 @@ export function createComplete(
   provider: ProviderName,
   env: NodeJS.ProcessEnv = process.env,
   fetchFn: typeof fetch = fetch,
+  baseUrl?: string,
 ): CompleteFn {
   if (provider === "mock") return mockComplete;
   if (provider === "openai") {
     const key = env.OPENAI_API_KEY;
     if (!key) throw new UsageError("OPENAI_API_KEY is not set");
-    return createOpenAIComplete(key, fetchFn, env.OPENAI_BASE_URL);
+    return createOpenAIComplete(key, fetchFn, baseUrl ?? env.OPENAI_BASE_URL);
+  }
+  if (provider === "ollama") {
+    const base =
+      baseUrl ??
+      env.OLLAMA_BASE_URL ??
+      env.OPENAI_BASE_URL ??
+      "http://127.0.0.1:11434/v1";
+    const key = env.OLLAMA_API_KEY ?? env.OPENAI_API_KEY ?? "ollama";
+    return createOpenAIComplete(key, fetchFn, base);
+  }
+  if (provider === "openai-compat") {
+    const base = baseUrl ?? env.OPENAI_BASE_URL;
+    if (!base) {
+      throw new UsageError(
+        "openai-compat requires suite base_url or OPENAI_BASE_URL (OpenAI-compatible chat endpoint)",
+      );
+    }
+    const key = env.OPENAI_API_KEY ?? "no-key";
+    return createOpenAIComplete(key, fetchFn, base);
   }
   const key = env.ANTHROPIC_API_KEY;
   if (!key) throw new UsageError("ANTHROPIC_API_KEY is not set");
-  return createAnthropicComplete(key, fetchFn, env.ANTHROPIC_BASE_URL);
+  return createAnthropicComplete(key, fetchFn, baseUrl ?? env.ANTHROPIC_BASE_URL);
 }
