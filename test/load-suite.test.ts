@@ -100,7 +100,7 @@ describe("loadSuite", () => {
   test("loads YAML object suites from disk", () => {
     const suite = loadSuite("examples/suite.yaml", repoRoot);
     assert.equal(suite.name, "demo");
-    assert.equal(suite.cases.length, 5);
+    assert.equal(suite.cases.length, 7);
   });
 
   test("loads a YAML list", () => {

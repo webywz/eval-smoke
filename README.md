@@ -42,7 +42,7 @@ eval-smoke 0.5.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 | | |
 | --- | --- |
 | **Tiny suite** | A handful of cases — not a full harness |
-| **Matchers** | `equals`, `contains`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens` |
+| **Matchers** | `equals`, `contains`, `contains_any` / `contains_all`, `starts_with` / `ends_with`, `not_contains`, `regex`, `json`, `min_tokens` / `max_tokens` |
 | **init** | `eval-smoke init` scaffolds a mock-friendly `suite.yaml` |
 | **Filter** | `--only` by id substring or `/regex/` |
 | **CI** | `--junit`, `--html`, `--github-summary`, exit codes, `--fail-fast`, `--concurrency` |
@@ -117,6 +117,9 @@ cases:
 | --- | --- |
 | `id` / `prompt` | Required |
 | `expect.contains` | Substring, case-insensitive; string or list |
+| `expect.contains_any` | Pass if **any** needle is found (OR) |
+| `expect.contains_all` | Pass if **all** needles are found (AND) |
+| `expect.starts_with` / `ends_with` | Prefix / suffix; string or list (OR) |
 | `expect.not_contains` | Must be absent |
 | `expect.regex` | `/pattern/i`, `(?i)pattern`, or raw |
 | `expect.equals` | Exact after NFC + LF normalize |
@@ -221,7 +224,7 @@ eval-smoke suite.yaml --mock
 | | |
 | --- | --- |
 | **轻量套件** | 少量用例，不是完整评测框架 |
-| **匹配器** | `equals`、`contains`、`not_contains`、`regex`、`json`、token 上下限 |
+| **匹配器** | `equals`、`contains`、`contains_any` / `contains_all`、`starts_with` / `ends_with`、`not_contains`、`regex`、`json`、token 上下限 |
 | **init** | `eval-smoke init` 生成可 mock 的 `suite.yaml` |
 | **过滤** | `--only`：id 子串或 `/regex/` |
 | **CI** | `--junit`、`--html`、`--github-summary`、退出码、`--fail-fast`、`--concurrency` |
@@ -288,6 +291,9 @@ cases:
 | --- | --- |
 | `id` / `prompt` | 必填 |
 | `expect.contains` | 子串，忽略大小写；字符串或列表 |
+| `expect.contains_any` | **任一**针命中即过（OR） |
+| `expect.contains_all` | **全部**针都要命中（AND） |
+| `expect.starts_with` / `ends_with` | 前缀 / 后缀；字符串或列表（OR） |
 | `expect.not_contains` | 不得出现 |
 | `expect.regex` | `/pattern/i`、`(?i)pattern` 或裸模式 |
 | `expect.equals` | NFC + LF 规范化后精确匹配 |

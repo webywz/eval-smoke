@@ -8,6 +8,14 @@ export type JsonExpect = true | Record<string, unknown> | unknown[];
 export interface Expect {
   contains?: StringList;
   not_contains?: StringList;
+  /** Pass if ANY needle is found (case-insensitive). */
+  contains_any?: StringList;
+  /** Pass if ALL needles are found (case-insensitive). */
+  contains_all?: StringList;
+  /** Pass if output starts with any needle (case-insensitive). */
+  starts_with?: StringList;
+  /** Pass if output ends with any needle (case-insensitive). */
+  ends_with?: StringList;
   regex?: StringList;
   /** Exact string match (Unicode NFC, LF newlines). Trailing newline stripped on both sides. */
   equals?: string;
@@ -46,6 +54,10 @@ export type CompleteFn = (request: CompleteRequest) => Promise<string>;
 export type CheckName =
   | "contains"
   | "not_contains"
+  | "contains_any"
+  | "contains_all"
+  | "starts_with"
+  | "ends_with"
   | "regex"
   | "equals"
   | "json"

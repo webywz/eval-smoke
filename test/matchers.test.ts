@@ -100,3 +100,42 @@ describe("evaluateExpect", () => {
     assert.match(equalsDiff("abc", "axc"), /index 1/);
   });
 });
+
+  test("contains_any passes when one needle hits", () => {
+    const [check] = evaluateExpect("Hello from Paris", {
+      contains_any: ["Berlin", "Paris"],
+    });
+    assert.equal(check?.ok, true);
+    assert.equal(check?.name, "contains_any");
+  });
+
+  test("contains_any fails when none hit", () => {
+    const [check] = evaluateExpect("Hello", { contains_any: ["Paris", "Lyon"] });
+    assert.equal(check?.ok, false);
+    assert.match(check?.detail ?? "", /none of/);
+  });
+
+  test("contains_all requires every needle", () => {
+    const pass = evaluateExpect("Hello Paris", { contains_all: ["hello", "paris"] });
+    const fail = evaluateExpect("Hello", { contains_all: ["hello", "paris"] });
+    assert.equal(pass[0]?.ok, true);
+    assert.equal(fail[0]?.ok, false);
+    assert.match(fail[0]?.detail ?? "", /missing/);
+  });
+
+  test("starts_with and ends_with are case-insensitive", () => {
+    const start = evaluateExpect("Hello world", { starts_with: ["hey", "HELLO"] });
+    const end = evaluateExpect("Hello world", { ends_with: ["WORLD", "planet"] });
+    assert.equal(start[0]?.ok, true);
+    assert.equal(end[0]?.ok, true);
+    const miss = evaluateExpect("Hello", { starts_with: "Bye", ends_with: "there" });
+    assert.equal(miss[0]?.ok, false);
+    assert.equal(miss[1]?.ok, false);
+  });
+
+  test("hasMatchers sees soft keys", () => {
+    assert.equal(hasMatchers({ contains_any: "x" }), true);
+    assert.equal(hasMatchers({ contains_all: ["a"] }), true);
+    assert.equal(hasMatchers({ starts_with: "a" }), true);
+    assert.equal(hasMatchers({ ends_with: "z" }), true);
+  });

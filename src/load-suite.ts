@@ -82,6 +82,10 @@ function parseExpect(raw: unknown, caseId: string): Expect {
   const expect: Expect = {
     contains: parseStringList(raw.contains, `Case "${caseId}" expect.contains`),
     not_contains: parseStringList(raw.not_contains, `Case "${caseId}" expect.not_contains`),
+    contains_any: parseStringList(raw.contains_any, `Case "${caseId}" expect.contains_any`),
+    contains_all: parseStringList(raw.contains_all, `Case "${caseId}" expect.contains_all`),
+    starts_with: parseStringList(raw.starts_with, `Case "${caseId}" expect.starts_with`),
+    ends_with: parseStringList(raw.ends_with, `Case "${caseId}" expect.ends_with`),
     regex: parseStringList(raw.regex, `Case "${caseId}" expect.regex`),
   };
 
@@ -111,7 +115,7 @@ function parseExpect(raw: unknown, caseId: string): Expect {
 
   if (!hasMatchers(expect)) {
     throw new UsageError(
-      `Case "${caseId}" expect needs at least one of contains, not_contains, regex, equals, json, min_tokens, max_tokens`,
+      `Case "${caseId}" expect needs at least one of contains, not_contains, contains_any, contains_all, starts_with, ends_with, regex, equals, json, min_tokens, max_tokens`,
     );
   }
 
