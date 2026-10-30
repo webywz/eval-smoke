@@ -173,7 +173,9 @@ export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<
     env,
   });
   const model = resolveModel(runner, options.model, suite.model);
-  const complete = options.complete ?? createComplete(runner, env, options.fetch ?? globalThis.fetch);
+  const complete =
+    options.complete ??
+    createComplete(runner, env, options.fetch ?? globalThis.fetch, options.baseUrl ?? suite.base_url);
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const concurrency = resolveConcurrency(options);
   const started = performance.now();

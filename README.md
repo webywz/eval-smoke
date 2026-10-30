@@ -218,7 +218,27 @@ if (!report.ok) process.exit(1);
 
 ---
 
+
+### Local inference (0.9)
+
+Suite fields for local / OpenAI-compatible servers:
+
+```yaml
+provider: ollama          # or openai-compat
+base_url: http://127.0.0.1:11434/v1
+model: llama3.2
+```
+
+- `ollama` — defaults `base_url` to `http://127.0.0.1:11434/v1` (no API key required)
+- `openai-compat` — requires `base_url` (or `OPENAI_BASE_URL`); uses OpenAI chat completions shape
+
+
 ## 中文
+
+### 本地推理（0.9）
+
+套件可设 `provider: ollama|openai-compat` 与 `base_url`（Ollama 默认 `http://127.0.0.1:11434/v1`；`openai-compat` 需 `base_url` 或 `OPENAI_BASE_URL`）。
+
 
 ### 演示
 
