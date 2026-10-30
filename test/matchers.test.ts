@@ -89,6 +89,12 @@ describe("evaluateExpect", () => {
     assert.equal(compileRegex("(?i)foo").flags.includes("i"), true);
   });
 
+  test("compileRegex rejects empty, oversized, and invalid patterns", () => {
+    assert.throws(() => compileRegex(""), /non-empty/);
+    assert.throws(() => compileRegex("a".repeat(513)), /too long/);
+    assert.throws(() => compileRegex("("), /invalid regex/);
+  });
+
   test("normalizeEquals and equalsDiff helpers", () => {
     assert.equal(normalizeEquals("Hi\r\n"), "Hi");
     assert.match(equalsDiff("abc", "axc"), /index 1/);

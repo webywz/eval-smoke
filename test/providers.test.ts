@@ -115,6 +115,72 @@ describe("live providers", () => {
     assert.equal(output, "Paris");
   });
 
+  test("OpenAI rejects missing choices", async () => {
+    const complete = createOpenAIComplete("sk-test", async () => jsonResponse({ choices: [] }));
+    await assert.rejects(
+      complete({ prompt: "Hi", model: "gpt-4o-mini", signal: idle }),
+      /missing choices/,
+    );
+  });
+
+  test("OpenAI rejects missing message content", async () => {
+    const complete = createOpenAIComplete("sk-test", async () =>
+      jsonResponse({ choices: [{ message: {} }] }),
+    );
+    await assert.rejects(
+      complete({ prompt: "Hi", model: "gpt-4o-mini", signal: idle }),
+      /missing message content/,
+    );
+  });
+
+  test("OpenAI forwards AbortSignal", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const complete = createOpenAIComplete("sk-test", async (_url, init) => {
+      assert.equal(init?.signal?.aborted, true);
+      const err = new Error("The operation was aborted");
+      err.name = "AbortError";
+      throw err;
+    });
+    await assert.rejects(
+      complete({ prompt: "Hi", model: "gpt-4o-mini", signal: controller.signal }),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
+  });
+
+  test("Anthropic surfaces HTTP errors", async () => {
+    const complete = createAnthropicComplete("ant-test", async () =>
+      jsonResponse({ error: { message: "overloaded" } }, 529),
+    );
+    await assert.rejects(
+      complete({ prompt: "Hi", model: "claude-3-5-haiku-20241022", signal: idle }),
+      /Anthropic 529: overloaded/,
+    );
+  });
+
+  test("Anthropic rejects missing content", async () => {
+    const complete = createAnthropicComplete("ant-test", async () => jsonResponse({}));
+    await assert.rejects(
+      complete({ prompt: "Hi", model: "claude-3-5-haiku-20241022", signal: idle }),
+      /missing content/,
+    );
+  });
+
+  test("Anthropic forwards AbortSignal", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const complete = createAnthropicComplete("ant-test", async (_url, init) => {
+      assert.equal(init?.signal?.aborted, true);
+      const err = new Error("The operation was aborted");
+      err.name = "AbortError";
+      throw err;
+    });
+    await assert.rejects(
+      complete({ prompt: "Hi", model: "claude-3-5-haiku-20241022", signal: controller.signal }),
+      (error: unknown) => error instanceof Error && error.name === "AbortError",
+    );
+  });
+
   test("createComplete requires the matching key", () => {
     assert.throws(() => createComplete("openai", {}), /OPENAI_API_KEY/);
     assert.throws(() => createComplete("anthropic", {}), /ANTHROPIC_API_KEY/);
