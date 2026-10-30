@@ -1,3 +1,4 @@
+import { estimateCostUsd, sumCostUsd } from "./cost.js";
 import { evaluateCase } from "./matchers.js";
 import { createComplete, resolveModel, resolveProvider } from "./providers.js";
 import type { CaseResult, CompleteFn, Report, RunOptions, Suite } from "./types.js";
@@ -52,32 +53,50 @@ async function runCase(
     throw new Error(`Missing case at index ${caseIndex}`);
   }
   const started = performance.now();
+  const caseModel = testCase.model ?? model;
   try {
     const output = await withTimeout(timeoutMs, (signal) =>
       complete({
         prompt: testCase.prompt,
         system: testCase.system ?? suite.system,
-        model: testCase.model ?? model,
+        model: caseModel,
         maxTokens: testCase.expect.max_tokens,
         signal,
       }),
     );
     const duration_ms = Math.round(performance.now() - started);
-    const checks = evaluateCase(output, testCase, { durationMs: duration_ms });
+    const estimate = estimateCostUsd({
+      model: caseModel,
+      prompt: testCase.prompt,
+      system: testCase.system ?? suite.system,
+      output,
+    });
+    const checks = evaluateCase(output, testCase, {
+      durationMs: duration_ms,
+      costUsd: estimate.costUsd,
+    });
     return {
       id: testCase.id,
       ok: checks.every((check) => check.ok),
       duration_ms,
       output,
       checks,
+      cost_usd: estimate.costUsd,
     };
   } catch (error) {
     const timedOut = isAbortError(error);
+    const estimate = estimateCostUsd({
+      model: caseModel,
+      prompt: testCase.prompt,
+      system: testCase.system ?? suite.system,
+      output: "",
+    });
     return {
       id: testCase.id,
       ok: false,
       duration_ms: Math.round(performance.now() - started),
       error: timedOut ? `timed out after ${timeoutMs}ms` : errorMessage(error),
+      cost_usd: estimate.costUsd,
     };
   }
 }
@@ -167,9 +186,12 @@ export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<
   const passed = cases.filter((item) => item.ok).length;
   const skipped = cases.filter((item) => item.skipped).length;
   const failed = cases.length - passed - skipped;
+  const cost_usd = sumCostUsd(cases.map((c) => c.cost_usd ?? 0));
+  const budget_usd = suite.budget_usd;
+  const underBudget = budget_usd == null || cost_usd <= budget_usd;
 
   return {
-    ok: failed === 0 && skipped === 0,
+    ok: failed === 0 && skipped === 0 && underBudget,
     version: VERSION,
     runner,
     model,
@@ -178,6 +200,8 @@ export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<
     failed,
     skipped,
     duration_ms: Math.round(performance.now() - started),
+    cost_usd,
+    ...(budget_usd != null ? { budget_usd } : {}),
     cases,
   };
 }

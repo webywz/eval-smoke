@@ -49,6 +49,13 @@ function parsePositiveInt(value: unknown, label: string): number {
   return value;
 }
 
+function parsePositiveNumber(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    throw new UsageError(`${label} must be a positive number`);
+  }
+  return value;
+}
+
 function parseJsonExpect(value: unknown, caseId: string): JsonExpect | undefined {
   if (value == null) return undefined;
   if (value === true) return true;
@@ -108,6 +115,12 @@ function parseExpect(raw: unknown, caseId: string): Expect {
       `Case "${caseId}" expect.max_latency_ms`,
     );
   }
+  if (raw.max_cost_usd != null) {
+    expect.max_cost_usd = parsePositiveNumber(
+      raw.max_cost_usd,
+      `Case "${caseId}" expect.max_cost_usd`,
+    );
+  }
 
   if (
     expect.min_tokens != null &&
@@ -121,7 +134,7 @@ function parseExpect(raw: unknown, caseId: string): Expect {
 
   if (!hasMatchers(expect)) {
     throw new UsageError(
-      `Case "${caseId}" expect needs at least one of contains, not_contains, contains_any, contains_all, starts_with, ends_with, regex, equals, json, min_tokens, max_tokens, max_latency_ms`,
+      `Case "${caseId}" expect needs at least one of contains, not_contains, contains_any, contains_all, starts_with, ends_with, regex, equals, json, min_tokens, max_tokens, max_latency_ms, max_cost_usd`,
     );
   }
 
@@ -163,6 +176,7 @@ export function parseSuite(raw: unknown): Suite {
   let model: string | undefined;
   let provider: ProviderName | undefined;
   let system: string | undefined;
+  let budget_usd: number | undefined;
   let caseList: unknown[];
 
   if (Array.isArray(raw)) {
@@ -172,6 +186,9 @@ export function parseSuite(raw: unknown): Suite {
     model = optionalString(raw.model, "suite model");
     provider = parseProvider(raw.provider);
     system = optionalString(raw.system, "suite system");
+    if (raw.budget_usd != null) {
+      budget_usd = parsePositiveNumber(raw.budget_usd, "suite budget_usd");
+    }
     if (raw.cases == null && "id" in raw && "prompt" in raw) {
       caseList = [raw];
     } else if (!Array.isArray(raw.cases)) {
@@ -196,7 +213,7 @@ export function parseSuite(raw: unknown): Suite {
     seen.add(testCase.id);
   }
 
-  return { name, model, provider, system, cases };
+  return { name, model, provider, system, budget_usd, cases };
 }
 
 function parseDocument(text: string, source: string): unknown {
