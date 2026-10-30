@@ -14,9 +14,11 @@ Options:
   --mock              Offline runner with deterministic fake answers
   --json              Machine-readable JSON report
   --fail-fast         Stop after the first failing case
+  --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
   --timeout <ms>      Per-case timeout (default: ${DEFAULT_TIMEOUT_MS})
   --model <name>      Override suite model
   --provider <name>   openai | anthropic | mock
+  --no-color          Disable ANSI colors (also respects NO_COLOR)
   -h, --help          Show this help
   -v, --version       Show version
 
@@ -28,6 +30,7 @@ Exit codes:
 Examples:
   eval-smoke examples/suite.yaml --mock
   eval-smoke examples/suite.yaml --json --fail-fast
+  eval-smoke examples/suite.yaml --mock --concurrency 4
   OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 `;
 
@@ -56,6 +59,15 @@ function parseTimeout(raw: string | undefined): number {
   return value;
 }
 
+function parseConcurrency(raw: string | undefined): number | undefined {
+  if (raw == null) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new UsageError("--concurrency must be a positive integer");
+  }
+  return value;
+}
+
 function parseProvider(raw: string | undefined): ProviderName | undefined {
   if (raw == null) return undefined;
   if (raw === "mock" || raw === "openai" || raw === "anthropic") return raw;
@@ -73,9 +85,11 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
         mock: { type: "boolean", default: false },
         json: { type: "boolean", default: false },
         "fail-fast": { type: "boolean", default: false },
+        concurrency: { type: "string" },
         timeout: { type: "string" },
         model: { type: "string" },
         provider: { type: "string" },
+        "no-color": { type: "boolean", default: false },
         help: { type: "boolean", short: "h", default: false },
         version: { type: "boolean", short: "v", default: false },
       },
@@ -114,10 +128,12 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       provider: parseProvider(asString(values.provider)),
       model: asString(values.model),
       failFast: asBool(values["fail-fast"]),
+      concurrency: parseConcurrency(asString(values.concurrency)),
       timeoutMs: parseTimeout(asString(values.timeout)),
       env: io.env,
     });
-    const color = io.isTTY && !json && !io.env.NO_COLOR;
+    const noColor = asBool(values["no-color"]) || Boolean(io.env.NO_COLOR);
+    const color = io.isTTY && !json && !noColor;
     io.stdout.write(formatReport(report, { json, color }));
     return report.ok ? 0 : 1;
   } catch (error) {

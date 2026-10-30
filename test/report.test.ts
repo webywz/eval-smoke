@@ -47,4 +47,31 @@ describe("formatReport", () => {
     assert.equal(parsed.cases.length, 2);
     assert.equal(parsed.cases[1]?.checks?.[0]?.name, "contains");
   });
+
+  test("equals failures show first-diff detail", () => {
+    const equalsReport: Report = {
+      ...report,
+      cases: [
+        {
+          id: "exact",
+          ok: false,
+          duration_ms: 1,
+          output: "Hallo",
+          checks: [
+            {
+              name: "equals",
+              ok: false,
+              expected: "Hello",
+              actual: "Hallo",
+              detail: "first diff at index 1\n          expected: \"Hello\"\n          actual:   \"Hallo\"\n                    ^",
+            },
+          ],
+        },
+      ],
+    };
+    const textOut = formatReport(equalsReport, { color: false });
+    assert.match(textOut, /equals:/);
+    assert.match(textOut, /first diff at index 1/);
+  });
+
 });

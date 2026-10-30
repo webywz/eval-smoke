@@ -25,6 +25,30 @@ function failedChecks(result: CaseResult): CheckResult[] {
   return (result.checks ?? []).filter((check) => !check.ok);
 }
 
+function formatFailedCheck(check: CheckResult): string[] {
+  const lines: string[] = [];
+  const headline = check.detail?.includes("\n")
+    ? `${check.name}:`
+    : `${check.name}: ${check.detail ?? "failed"}`;
+  lines.push(`        ${headline}`);
+  if (check.detail?.includes("\n")) {
+    for (const line of check.detail.split("\n")) {
+      lines.push(`          ${line}`);
+    }
+  }
+  if (check.name === "equals" || check.name === "json") {
+    if (check.expected != null && !check.detail?.includes("expected:")) {
+      lines.push(`          expected: ${truncate(check.expected, 160)}`);
+    }
+    if (check.actual != null && !check.detail?.includes("actual:")) {
+      lines.push(`          actual:   ${truncate(check.actual, 160)}`);
+    }
+  } else if (check.actual != null && check.name !== "contains" && check.name !== "not_contains") {
+    lines.push(`          actual: ${truncate(check.actual, 160)}`);
+  }
+  return lines;
+}
+
 function formatCase(result: CaseResult, color: boolean): string[] {
   const ms = `${result.duration_ms}ms`;
   if (result.skipped) {
@@ -39,9 +63,9 @@ function formatCase(result: CaseResult, color: boolean): string[] {
     lines.push(`        ${result.error}`);
   }
   for (const check of failedChecks(result)) {
-    lines.push(`        ${check.name}: ${check.detail ?? "failed"}`);
+    lines.push(...formatFailedCheck(check));
   }
-  if (result.output) {
+  if (result.output && failedChecks(result).every((c) => c.name !== "equals")) {
     lines.push(`        output: ${truncate(result.output)}`);
   }
   return lines;
