@@ -22,3 +22,8 @@ export type {
   Suite,
 } from "./types.js";
 export { UsageError } from "./types.js";
+
+export { checkBaseline, loadBaseline, writeBaseline } from "./baseline.js";
+export type { BaselineCheck, BaselineCase, BaselineFile } from "./baseline.js";
+export { appendGithubSummary, resolveGithubSummaryPath, DEFAULT_GITHUB_SUMMARY } from "./github-summary.js";
+export { formatGithubSummary } from "./summary-md.js";

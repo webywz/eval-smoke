@@ -1,14 +1,20 @@
 import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { checkBaseline, loadBaseline, writeBaseline } from "./baseline.js";
+import { appendGithubSummary, resolveGithubSummaryPath } from "./github-summary.js";
 import { initSuite } from "./init.js";
 import { formatJUnit } from "./junit.js";
 import { loadSuite } from "./load-suite.js";
 import { compileRegex } from "./matchers.js";
 import { formatReport } from "./report.js";
 import { DEFAULT_TIMEOUT_MS, runSuite } from "./run.js";
+import { formatGithubSummary } from "./summary-md.js";
 import { UsageError, type ProviderName, type Suite } from "./types.js";
 import { VERSION } from "./version.js";
+
+/** Sentinel so node:util accepts a bare --github-summary flag. */
+const GITHUB_SUMMARY_AUTO = "__auto__";
 
 export const HELP = `eval-smoke — one-minute smoke evals for prompts and models
 
@@ -26,14 +32,17 @@ Options:
   --timeout <ms>      Per-case timeout (default: ${DEFAULT_TIMEOUT_MS})
   --model <name>      Override suite model
   --provider <name>   openai | anthropic | mock
+  --baseline <path>   Fail if any baseline-passing case now fails or is missing
+  --update-baseline <path>  Write current report JSON to path (pretty)
+  --github-summary [path]   Append Markdown to GITHUB_STEP_SUMMARY or path
   --force             Overwrite existing suite.yaml when using init
   --no-color          Disable ANSI colors (also respects NO_COLOR)
   -h, --help          Show this help
   -v, --version       Show version
 
 Exit codes:
-  0  all cases passed
-  1  one or more cases failed
+  0  all cases passed (and baseline clean when --baseline is set)
+  1  one or more cases failed, or baseline regression
   2  usage or configuration error
 
 Examples:
@@ -45,6 +54,9 @@ Examples:
   eval-smoke examples/suite.yaml --mock --junit junit.xml
   eval-smoke examples/suite.yaml --json --fail-fast
   eval-smoke examples/suite.yaml --mock --concurrency 4
+  eval-smoke examples/suite.yaml --mock --update-baseline baseline.json
+  eval-smoke examples/suite.yaml --mock --baseline baseline.json
+  eval-smoke examples/suite.yaml --mock --github-summary
   OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 `;
 
@@ -107,11 +119,41 @@ export function filterSuiteByOnly(suite: Suite, pattern: string): Suite {
   return { ...suite, cases };
 }
 
+/**
+ * Rewrite bare `--github-summary` into `--github-summary=__auto__` so node:util
+ * parseArgs (string option) accepts it. `--github-summary=path` and
+ * `--github-summary path` stay as-is.
+ */
+export function normalizeGithubSummaryArgv(argv: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i]!;
+    if (token === "--github-summary") {
+      const next = argv[i + 1];
+      if (!next || next.startsWith("-")) {
+        out.push(`--github-summary=${GITHUB_SUMMARY_AUTO}`);
+      } else {
+        out.push("--github-summary", next);
+        i += 1;
+      }
+      continue;
+    }
+    out.push(token);
+  }
+  return out;
+}
+
+function githubSummaryFlag(raw: string | undefined): string | true | undefined {
+  if (raw == null) return undefined;
+  if (raw === GITHUB_SUMMARY_AUTO) return true;
+  return raw;
+}
+
 export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<number> {
   let parsed: ReturnType<typeof parseArgs>;
   try {
     parsed = parseArgs({
-      args: argv,
+      args: normalizeGithubSummaryArgv(argv),
       allowPositionals: true,
       strict: true,
       options: {
@@ -124,6 +166,9 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
         timeout: { type: "string" },
         model: { type: "string" },
         provider: { type: "string" },
+        baseline: { type: "string" },
+        "update-baseline": { type: "string" },
+        "github-summary": { type: "string" },
         force: { type: "boolean", default: false },
         "no-color": { type: "boolean", default: false },
         help: { type: "boolean", short: "h", default: false },
@@ -174,6 +219,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
     const json = asBool(values.json);
     const only = asString(values.only);
     const junitPath = asString(values.junit);
+    const baselinePath = asString(values.baseline);
+    const updateBaselinePath = asString(values["update-baseline"]);
+    const githubSummary = githubSummaryFlag(asString(values["github-summary"]));
+
     let suite = loadSuite(suitePath, io.cwd);
     if (only != null) {
       suite = filterSuiteByOnly(suite, only);
@@ -191,9 +240,37 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       const out = resolve(io.cwd, junitPath);
       writeFileSync(out, formatJUnit(report), "utf8");
     }
+    if (updateBaselinePath != null) {
+      const out = resolve(io.cwd, updateBaselinePath);
+      writeBaseline(out, report);
+      io.stderr.write(`Wrote baseline ${out}\n`);
+    }
+
+    let baselineFailed = false;
+    if (baselinePath != null) {
+      const baseline = loadBaseline(resolve(io.cwd, baselinePath));
+      const check = checkBaseline(report, baseline);
+      io.stderr.write(check.report);
+      if (!check.ok) baselineFailed = true;
+    }
+
+    const outSummary =
+      githubSummary === undefined
+        ? resolveGithubSummaryPath(undefined, io.env, io.cwd)
+        : resolveGithubSummaryPath(githubSummary, io.env, io.cwd);
+    if (outSummary) {
+      try {
+        appendGithubSummary(outSummary, formatGithubSummary(report));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        io.stderr.write(`could not write github summary: ${message}\n`);
+      }
+    }
+
     const noColor = asBool(values["no-color"]) || Boolean(io.env.NO_COLOR);
     const color = io.isTTY && !json && !noColor;
     io.stdout.write(formatReport(report, { json, color }));
+    if (baselineFailed) return 1;
     return report.ok ? 0 : 1;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
