@@ -84,6 +84,20 @@ describe("parseSuite", () => {
     assert.deepEqual(suite.cases[0]?.expect.json, { city: "Paris" });
   });
 
+  test("accepts max_latency_ms", () => {
+    const suite = parseSuite([
+      { id: "a", prompt: "hi", expect: { contains: "x", max_latency_ms: 2500 } },
+    ]);
+    assert.equal(suite.cases[0]?.expect.max_latency_ms, 2500);
+  });
+
+  test("rejects non-positive max_latency_ms", () => {
+    assert.throws(
+      () => parseSuite([{ id: "a", prompt: "1", expect: { max_latency_ms: 0 } }]),
+      /max_latency_ms/,
+    );
+  });
+
   test("rejects min_tokens greater than max_tokens", () => {
     assert.throws(
       () =>

@@ -139,3 +139,20 @@ describe("evaluateExpect", () => {
     assert.equal(hasMatchers({ starts_with: "a" }), true);
     assert.equal(hasMatchers({ ends_with: "z" }), true);
   });
+
+  test("max_latency_ms fails when duration exceeds budget", () => {
+    const pass = evaluateExpect("Hello", { max_latency_ms: 100 }, { durationMs: 40 });
+    const fail = evaluateExpect("Hello", { max_latency_ms: 50 }, { durationMs: 80 });
+    assert.equal(pass[0]?.ok, true);
+    assert.equal(pass[0]?.name, "max_latency_ms");
+    assert.equal(fail[0]?.ok, false);
+    assert.equal(fail[0]?.name, "max_latency_ms");
+    assert.match(fail[0]?.detail ?? "", /exceeds max_latency_ms/);
+    assert.equal(fail[0]?.actual, "80");
+    assert.equal(fail[0]?.expected, "50");
+  });
+
+  test("hasMatchers sees max_latency_ms", () => {
+    assert.equal(hasMatchers({ max_latency_ms: 100 }), true);
+  });
+

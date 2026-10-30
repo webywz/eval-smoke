@@ -59,7 +59,8 @@ export function hasMatchers(expect: Expect): boolean {
     expect.equals != null ||
     expect.json != null ||
     expect.max_tokens != null ||
-    expect.min_tokens != null
+    expect.min_tokens != null ||
+    expect.max_latency_ms != null
   );
 }
 
@@ -137,7 +138,16 @@ function evaluateJson(output: string, expect: JsonExpect): CheckResult {
   };
 }
 
-export function evaluateExpect(output: string, expect: Expect): CheckResult[] {
+export interface EvaluateOptions {
+  /** Measured case duration in ms (for max_latency_ms). */
+  durationMs?: number;
+}
+
+export function evaluateExpect(
+  output: string,
+  expect: Expect,
+  options: EvaluateOptions = {},
+): CheckResult[] {
   const checks: CheckResult[] = [];
 
   for (const needle of asList(expect.contains)) {
@@ -280,9 +290,27 @@ export function evaluateExpect(output: string, expect: Expect): CheckResult[] {
     });
   }
 
+  if (expect.max_latency_ms != null) {
+    const duration = options.durationMs ?? 0;
+    const ok = duration <= expect.max_latency_ms;
+    checks.push({
+      name: "max_latency_ms",
+      ok,
+      expected: String(expect.max_latency_ms),
+      actual: String(duration),
+      detail: ok
+        ? undefined
+        : `${duration}ms exceeds max_latency_ms ${expect.max_latency_ms}`,
+    });
+  }
+
   return checks;
 }
 
-export function evaluateCase(output: string, testCase: Case): CheckResult[] {
-  return evaluateExpect(output, testCase.expect);
+export function evaluateCase(
+  output: string,
+  testCase: Case,
+  options: EvaluateOptions = {},
+): CheckResult[] {
+  return evaluateExpect(output, testCase.expect, options);
 }

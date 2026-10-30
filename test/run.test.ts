@@ -99,6 +99,25 @@ describe("runSuite", () => {
     assert.equal(report.failed, 1);
   });
 
+  test("max_latency_ms fails slow cases", async () => {
+    const complete: CompleteFn = async () => {
+      await new Promise((r) => setTimeout(r, 60));
+      return "Hello";
+    };
+    const report = await runSuite(
+      {
+        cases: [
+          { id: "slow", prompt: "hello", expect: { contains: "Hello", max_latency_ms: 20 } },
+        ],
+      },
+      { complete, provider: "mock" },
+    );
+    assert.equal(report.ok, false);
+    const check = report.cases[0]?.checks?.find((c) => c.name === "max_latency_ms");
+    assert.equal(check?.ok, false);
+    assert.match(check?.detail ?? "", /exceeds max_latency_ms/);
+  });
+
   test("fail-fast forces sequential even if concurrency is set", async () => {
     let calls = 0;
     const complete: CompleteFn = async ({ prompt }) => {

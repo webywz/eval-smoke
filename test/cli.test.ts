@@ -147,6 +147,31 @@ describe("runCli", () => {
     assert.match(cap.stderr(), /matched 0 cases/);
   });
 
+  test("--tap emits TAP version 13 on stdout", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--tap"], cap.io);
+    assert.equal(code, 0);
+    assert.match(cap.stdout(), /^TAP version 13\n/);
+    assert.match(cap.stdout(), /^1\.\.7$/m);
+    assert.match(cap.stdout(), /^ok 1 - greeting$/m);
+    assert.doesNotMatch(cap.stdout(), /7 passed/);
+  });
+
+  test("--tap on failures exits 1 with not ok lines", async () => {
+    const cap = captureIo();
+    const code = await runCli(["test/fixtures/fail.yaml", "--mock", "--tap"], cap.io);
+    assert.equal(code, 1);
+    assert.match(cap.stdout(), /^not ok /m);
+  });
+
+  test("--help mentions --tap and --redact", async () => {
+    const cap = captureIo();
+    const code = await runCli(["--help"], cap.io);
+    assert.equal(code, 0);
+    assert.match(cap.stdout(), /--tap/);
+    assert.match(cap.stdout(), /--redact/);
+  });
+
   test("--junit writes XML and still prints human report", async () => {
     const dir = mkdtempSync(join(tmpdir(), "eval-smoke-junit-cli-"));
     try {

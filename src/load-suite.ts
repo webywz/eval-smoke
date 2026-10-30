@@ -102,6 +102,12 @@ function parseExpect(raw: unknown, caseId: string): Expect {
   if (raw.min_tokens != null) {
     expect.min_tokens = parsePositiveInt(raw.min_tokens, `Case "${caseId}" expect.min_tokens`);
   }
+  if (raw.max_latency_ms != null) {
+    expect.max_latency_ms = parsePositiveInt(
+      raw.max_latency_ms,
+      `Case "${caseId}" expect.max_latency_ms`,
+    );
+  }
 
   if (
     expect.min_tokens != null &&
@@ -115,7 +121,7 @@ function parseExpect(raw: unknown, caseId: string): Expect {
 
   if (!hasMatchers(expect)) {
     throw new UsageError(
-      `Case "${caseId}" expect needs at least one of contains, not_contains, contains_any, contains_all, starts_with, ends_with, regex, equals, json, min_tokens, max_tokens`,
+      `Case "${caseId}" expect needs at least one of contains, not_contains, contains_any, contains_all, starts_with, ends_with, regex, equals, json, min_tokens, max_tokens, max_latency_ms`,
     );
   }
 
