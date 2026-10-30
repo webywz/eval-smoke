@@ -2,23 +2,23 @@
 
 One-minute smoke evals for prompts and models.
 
-Full eval harnesses are heavy. `eval-smoke` is the tiny local suite you run before a ship: a handful of cases, pass/fail, exit code 1 on regression. YAML or JSON in, a CI-friendly report out.
+Full eval harnesses are heavy. `eval-smoke` is the tiny local suite you run before a ship: a handful of cases, pass/fail, exit code 1 on regression. YAML or JSON in, a CI-friendly report out — including optional JUnit XML.
 
 ```bash
 npm i -g @webywz/eval-smoke
-eval-smoke examples/suite.yaml --mock
+eval-smoke init
+eval-smoke suite.yaml --mock
 ```
 
 ```
-eval-smoke 0.2.0  ·  mock  ·  gpt-4o-mini  ·  demo  ·  5 cases
+eval-smoke 0.3.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
   pass  arithmetic             0ms
   pass  refuse-injection       0ms
-  pass  exact-hello            0ms
 
-5 passed  0 failed  1ms
+4 passed  0 failed  1ms
 ```
 
 `--mock` is offline and deterministic. Contributors and CI do not need API keys.
@@ -35,17 +35,30 @@ Requires Node 18+.
 
 ## 60-second start
 
-1. Copy the example suite, or write three cases you actually care about.
+1. Scaffold a suite with `eval-smoke init`, or copy the example.
 2. Run mock mode until the runner and matchers look right.
 3. Point the same file at a live model when you are ready.
 
 ```bash
-eval-smoke examples/suite.yaml --mock
+eval-smoke init
+eval-smoke suite.yaml --mock
+eval-smoke suite.yaml --mock --only greeting
+eval-smoke suite.yaml --mock --junit junit.xml
 eval-smoke examples/suite.yaml --mock --json
 eval-smoke examples/suite.yaml --mock --concurrency 4
 OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 ANTHROPIC_API_KEY=sk-ant-... eval-smoke examples/suite.yaml --model claude-3-5-haiku-20241022
 ```
+
+## `eval-smoke init`
+
+```bash
+eval-smoke init           # writes ./suite.yaml
+eval-smoke init ./prompts # writes ./prompts/suite.yaml
+eval-smoke init --force   # overwrite an existing suite.yaml
+```
+
+Creates a small mock-friendly suite (greeting, capital, arithmetic, refusal). Refuses to overwrite unless you pass `--force`.
 
 ## Suite format
 
@@ -104,14 +117,18 @@ At least one matcher is required on every case. Failed checks print expected/act
 
 ```
 eval-smoke <suite.yaml|suite.json> [options]
+eval-smoke init [dir] [--force]
 
   --mock              Offline runner with deterministic fake answers
   --json              Machine-readable JSON report
+  --junit <path>      Write JUnit XML to path (still prints human report unless --json)
+  --only <pattern>    Run cases whose id contains pattern, or matches /regex/
   --fail-fast         Stop after the first failing case
   --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
   --timeout <ms>      Per-case timeout (default: 30000)
   --model <name>      Override suite model
   --provider <name>   openai | anthropic | mock
+  --force             Overwrite existing suite.yaml for init
   --no-color          Disable ANSI colors (also respects NO_COLOR)
   -h, --help
   -v, --version
@@ -121,7 +138,29 @@ eval-smoke <suite.yaml|suite.json> [options]
 | --- | --- |
 | 0 | Every case passed |
 | 1 | One or more cases failed |
-| 2 | Usage or configuration error (missing file, bad YAML, no API key) |
+| 2 | Usage or configuration error (missing file, bad YAML, no API key, `--only` matched nothing) |
+
+### `--only`
+
+Filter cases by `id` before running:
+
+```bash
+eval-smoke suite.yaml --mock --only greeting          # substring
+eval-smoke suite.yaml --mock --only '/^capital/'       # /regex/ (same style as matchers)
+eval-smoke suite.yaml --mock --only '/hello/i'
+```
+
+Exits `2` if zero cases match.
+
+### `--junit`
+
+After a run, write a JUnit XML report for CI while still printing the human (or `--json`) report to stdout:
+
+```bash
+eval-smoke suite.yaml --mock --junit reports/junit.xml
+```
+
+Failures include matcher detail (`expected` / `actual` / `detail`). Skipped cases (e.g. `--fail-fast`) become `<skipped/>`.
 
 ## Runners
 
@@ -151,7 +190,7 @@ eval-smoke examples/suite.yaml --mock --json
 ```json
 {
   "ok": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "runner": "mock",
   "model": "gpt-4o-mini",
   "suite": "demo",
@@ -176,10 +215,12 @@ Failed checks may include `actual` plus a multi-line `detail` (first-diff for `e
 ## Programmatic API
 
 ```ts
-import { loadSuite, runSuite } from "@webywz/eval-smoke";
+import { loadSuite, runSuite, formatJUnit, initSuite } from "@webywz/eval-smoke";
 
-const suite = loadSuite("examples/suite.yaml");
+initSuite(".", { force: false });
+const suite = loadSuite("suite.yaml");
 const report = await runSuite(suite, { mock: true, concurrency: 4 });
+console.log(formatJUnit(report));
 if (!report.ok) process.exit(1);
 ```
 
@@ -190,7 +231,12 @@ if (!report.ok) process.exit(1);
 GitHub Actions in this repo runs `npm test`, `npm run build`, and `eval-smoke examples/suite.yaml --mock` on Node 18/20/22. Drop this into another project:
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.2.1 prompts/smoke.yaml --mock
+- run: npx @webywz/eval-smoke@0.3.0 prompts/smoke.yaml --mock --junit junit.xml
+- uses: actions/upload-artifact@v4
+  if: always()
+  with:
+    name: junit
+    path: junit.xml
 ```
 
 ## License

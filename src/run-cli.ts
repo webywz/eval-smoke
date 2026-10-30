@@ -1,23 +1,32 @@
+import { writeFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { initSuite } from "./init.js";
+import { formatJUnit } from "./junit.js";
 import { loadSuite } from "./load-suite.js";
+import { compileRegex } from "./matchers.js";
 import { formatReport } from "./report.js";
 import { DEFAULT_TIMEOUT_MS, runSuite } from "./run.js";
-import { UsageError, type ProviderName } from "./types.js";
+import { UsageError, type ProviderName, type Suite } from "./types.js";
 import { VERSION } from "./version.js";
 
 export const HELP = `eval-smoke — one-minute smoke evals for prompts and models
 
 Usage:
   eval-smoke <suite.yaml|suite.json> [options]
+  eval-smoke init [dir] [--force]
 
 Options:
   --mock              Offline runner with deterministic fake answers
   --json              Machine-readable JSON report
+  --junit <path>      Write JUnit XML report to path (still prints human report unless --json)
+  --only <pattern>    Run cases whose id contains pattern, or matches /regex/
   --fail-fast         Stop after the first failing case
   --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
   --timeout <ms>      Per-case timeout (default: ${DEFAULT_TIMEOUT_MS})
   --model <name>      Override suite model
   --provider <name>   openai | anthropic | mock
+  --force             Overwrite existing suite.yaml when using init
   --no-color          Disable ANSI colors (also respects NO_COLOR)
   -h, --help          Show this help
   -v, --version       Show version
@@ -28,7 +37,12 @@ Exit codes:
   2  usage or configuration error
 
 Examples:
+  eval-smoke init
+  eval-smoke init ./prompts --force
   eval-smoke examples/suite.yaml --mock
+  eval-smoke examples/suite.yaml --mock --only greeting
+  eval-smoke examples/suite.yaml --mock --only '/^capital/'
+  eval-smoke examples/suite.yaml --mock --junit junit.xml
   eval-smoke examples/suite.yaml --json --fail-fast
   eval-smoke examples/suite.yaml --mock --concurrency 4
   OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
@@ -74,6 +88,25 @@ function parseProvider(raw: string | undefined): ProviderName | undefined {
   throw new UsageError("--provider must be openai, anthropic, or mock");
 }
 
+/** Match case ids by substring, or by /regex/ flags (same style as matchers). */
+export function matchOnly(id: string, pattern: string): boolean {
+  const wrapped = pattern.match(/^\/([\s\S]+)\/([gimsuy]*)$/);
+  if (wrapped?.[1] != null) {
+    const re = compileRegex(pattern);
+    re.lastIndex = 0;
+    return re.test(id);
+  }
+  return id.includes(pattern);
+}
+
+export function filterSuiteByOnly(suite: Suite, pattern: string): Suite {
+  const cases = suite.cases.filter((testCase) => matchOnly(testCase.id, pattern));
+  if (cases.length === 0) {
+    throw new UsageError(`--only ${JSON.stringify(pattern)} matched 0 cases`);
+  }
+  return { ...suite, cases };
+}
+
 export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<number> {
   let parsed: ReturnType<typeof parseArgs>;
   try {
@@ -84,11 +117,14 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       options: {
         mock: { type: "boolean", default: false },
         json: { type: "boolean", default: false },
+        junit: { type: "string" },
+        only: { type: "string" },
         "fail-fast": { type: "boolean", default: false },
         concurrency: { type: "string" },
         timeout: { type: "string" },
         model: { type: "string" },
         provider: { type: "string" },
+        force: { type: "boolean", default: false },
         "no-color": { type: "boolean", default: false },
         help: { type: "boolean", short: "h", default: false },
         version: { type: "boolean", short: "v", default: false },
@@ -113,6 +149,20 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
     return 0;
   }
 
+  if (positionals[0] === "init") {
+    try {
+      const target = positionals[1];
+      const result = initSuite(target, { force: asBool(values.force), cwd: io.cwd });
+      io.stdout.write(`Created ${result.file}\n`);
+      io.stdout.write(`Next: eval-smoke ${result.file} --mock\n`);
+      return 0;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      io.stderr.write(`${message}\n`);
+      return error instanceof UsageError ? error.exitCode : 2;
+    }
+  }
+
   const suitePath = positionals[0];
   if (!suitePath) {
     io.stderr.write("Missing suite file.\n\n");
@@ -122,7 +172,12 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
 
   try {
     const json = asBool(values.json);
-    const suite = loadSuite(suitePath, io.cwd);
+    const only = asString(values.only);
+    const junitPath = asString(values.junit);
+    let suite = loadSuite(suitePath, io.cwd);
+    if (only != null) {
+      suite = filterSuiteByOnly(suite, only);
+    }
     const report = await runSuite(suite, {
       mock: asBool(values.mock),
       provider: parseProvider(asString(values.provider)),
@@ -132,6 +187,10 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       timeoutMs: parseTimeout(asString(values.timeout)),
       env: io.env,
     });
+    if (junitPath != null) {
+      const out = resolve(io.cwd, junitPath);
+      writeFileSync(out, formatJUnit(report), "utf8");
+    }
     const noColor = asBool(values["no-color"]) || Boolean(io.env.NO_COLOR);
     const color = io.isTTY && !json && !noColor;
     io.stdout.write(formatReport(report, { json, color }));

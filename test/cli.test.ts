@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, test } from "node:test";
 import { runCli } from "../src/run-cli.ts";
 import { captureIo } from "./helpers.ts";
@@ -9,6 +12,9 @@ describe("runCli", () => {
     const code = await runCli(["--help"], cap.io);
     assert.equal(code, 0);
     assert.match(cap.stdout(), /Usage:/);
+    assert.match(cap.stdout(), /--junit/);
+    assert.match(cap.stdout(), /--only/);
+    assert.match(cap.stdout(), /init/);
   });
 
   test("--version prints the package version", async () => {
@@ -113,4 +119,66 @@ describe("runCli", () => {
     assert.doesNotMatch(noColor.stdout(), /\u001b\[/);
   });
 
+  test("--only substring filters cases", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--only", "greeting", "--json"], cap.io);
+    assert.equal(code, 0);
+    const report = JSON.parse(cap.stdout()) as { passed: number; cases: Array<{ id: string }> };
+    assert.equal(report.passed, 1);
+    assert.deepEqual(
+      report.cases.map((c) => c.id),
+      ["greeting"],
+    );
+  });
+
+  test("--only /regex/ filters cases", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--only", "/^capital/", "--json"], cap.io);
+    assert.equal(code, 0);
+    const report = JSON.parse(cap.stdout()) as { passed: number; cases: Array<{ id: string }> };
+    assert.equal(report.passed, 1);
+    assert.equal(report.cases[0]?.id, "capital-france");
+  });
+
+  test("--only with zero matches exits 2", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--only", "no-such-case"], cap.io);
+    assert.equal(code, 2);
+    assert.match(cap.stderr(), /matched 0 cases/);
+  });
+
+  test("--junit writes XML and still prints human report", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "eval-smoke-junit-cli-"));
+    try {
+      const out = join(dir, "report.xml");
+      const cap = captureIo();
+      const code = await runCli(["examples/suite.yaml", "--mock", "--junit", out], cap.io);
+      assert.equal(code, 0);
+      assert.match(cap.stdout(), /5 passed/);
+      const xml = readFileSync(out, "utf8");
+      assert.match(xml, /<testsuites /);
+      assert.match(xml, /name="greeting"/);
+      assert.match(xml, /tests="5"/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("--junit with --json still writes XML and prints JSON", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "eval-smoke-junit-json-"));
+    try {
+      const out = join(dir, "report.xml");
+      const cap = captureIo();
+      const code = await runCli(["test/fixtures/fail.yaml", "--mock", "--junit", out, "--json"], cap.io);
+      assert.equal(code, 1);
+      const report = JSON.parse(cap.stdout()) as { ok: boolean; failed: number };
+      assert.equal(report.ok, false);
+      assert.equal(report.failed, 1);
+      const xml = readFileSync(out, "utf8");
+      assert.match(xml, /<failure /);
+      assert.match(xml, /spain/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
