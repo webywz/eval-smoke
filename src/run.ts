@@ -1,6 +1,7 @@
 import { evaluateCase } from "./matchers.js";
 import { createComplete, resolveModel, resolveProvider } from "./providers.js";
 import type { CaseResult, CompleteFn, Report, RunOptions, Suite } from "./types.js";
+import { UsageError } from "./types.js";
 import { VERSION } from "./version.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -80,25 +81,27 @@ async function runCase(
   }
 }
 
-export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<Report> {
-  const env = options.env ?? process.env;
-  const runner = resolveProvider({
-    mock: options.mock,
-    provider: options.provider,
-    suiteProvider: suite.provider,
-    model: options.model ?? suite.model,
-    env,
-  });
-  const model = resolveModel(runner, options.model, suite.model);
-  const complete = options.complete ?? createComplete(runner, env, options.fetch ?? globalThis.fetch);
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const started = performance.now();
-  const cases: CaseResult[] = [];
+function resolveConcurrency(options: RunOptions): number {
+  const raw = options.concurrency ?? 1;
+  if (!Number.isInteger(raw) || raw < 1) {
+    throw new UsageError("concurrency must be a positive integer");
+  }
+  if (options.failFast) return 1;
+  return raw;
+}
 
+async function runSequential(
+  suite: Suite,
+  complete: CompleteFn,
+  model: string,
+  timeoutMs: number,
+  failFast: boolean,
+): Promise<CaseResult[]> {
+  const cases: CaseResult[] = [];
   for (let index = 0; index < suite.cases.length; index += 1) {
     const result = await runCase(suite, index, complete, model, timeoutMs);
     cases.push(result);
-    if (!result.ok && options.failFast) {
+    if (!result.ok && failFast) {
       for (let rest = index + 1; rest < suite.cases.length; rest += 1) {
         const skipped = suite.cases[rest];
         if (!skipped) continue;
@@ -113,6 +116,52 @@ export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<
       break;
     }
   }
+  return cases;
+}
+
+async function runConcurrent(
+  suite: Suite,
+  complete: CompleteFn,
+  model: string,
+  timeoutMs: number,
+  concurrency: number,
+): Promise<CaseResult[]> {
+  const results: CaseResult[] = new Array(suite.cases.length);
+  let next = 0;
+
+  async function worker(): Promise<void> {
+    while (true) {
+      const index = next;
+      next += 1;
+      if (index >= suite.cases.length) return;
+      results[index] = await runCase(suite, index, complete, model, timeoutMs);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(concurrency, suite.cases.length) }, () => worker());
+  await Promise.all(workers);
+  return results;
+}
+
+export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<Report> {
+  const env = options.env ?? process.env;
+  const runner = resolveProvider({
+    mock: options.mock,
+    provider: options.provider,
+    suiteProvider: suite.provider,
+    model: options.model ?? suite.model,
+    env,
+  });
+  const model = resolveModel(runner, options.model, suite.model);
+  const complete = options.complete ?? createComplete(runner, env, options.fetch ?? globalThis.fetch);
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const concurrency = resolveConcurrency(options);
+  const started = performance.now();
+
+  const cases =
+    concurrency === 1
+      ? await runSequential(suite, complete, model, timeoutMs, Boolean(options.failFast))
+      : await runConcurrent(suite, complete, model, timeoutMs, concurrency);
 
   const passed = cases.filter((item) => item.ok).length;
   const skipped = cases.filter((item) => item.skipped).length;

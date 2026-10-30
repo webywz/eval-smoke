@@ -81,4 +81,38 @@ describe("runSuite", () => {
     assert.equal(report.ok, true);
     assert.equal(report.cases[0]?.output, "pong");
   });
+
+  test("concurrency runs cases in parallel while preserving order", async () => {
+    let inFlight = 0;
+    let maxInFlight = 0;
+    const complete: CompleteFn = async ({ prompt }) => {
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((r) => setTimeout(r, 40));
+      inFlight -= 1;
+      return prompt.includes("hello") ? "Hello" : "nope";
+    };
+    const report = await runSuite(suite, { complete, provider: "mock", concurrency: 3 });
+    assert.equal(report.cases.map((c) => c.id).join(","), "ok,bad,later");
+    assert.ok(maxInFlight >= 2, `expected parallel work, maxInFlight=${maxInFlight}`);
+    assert.equal(report.passed, 2);
+    assert.equal(report.failed, 1);
+  });
+
+  test("fail-fast forces sequential even if concurrency is set", async () => {
+    let calls = 0;
+    const complete: CompleteFn = async ({ prompt }) => {
+      calls += 1;
+      return prompt.includes("hello") ? "Hello" : "nope";
+    };
+    const report = await runSuite(suite, {
+      complete,
+      provider: "mock",
+      failFast: true,
+      concurrency: 8,
+    });
+    assert.equal(calls, 2);
+    assert.equal(report.skipped, 1);
+  });
+
 });

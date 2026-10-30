@@ -35,7 +35,7 @@ describe("runCli", () => {
     const cap = captureIo();
     const code = await runCli(["examples/suite.yaml", "--mock"], cap.io);
     assert.equal(code, 0);
-    assert.match(cap.stdout(), /4 passed/);
+    assert.match(cap.stdout(), /5 passed/);
     assert.match(cap.stdout(), /greeting/);
   });
 
@@ -45,7 +45,7 @@ describe("runCli", () => {
     assert.equal(code, 0);
     const report = JSON.parse(cap.stdout()) as { ok: boolean; passed: number; runner: string };
     assert.equal(report.ok, true);
-    assert.equal(report.passed, 4);
+    assert.equal(report.passed, 5);
     assert.equal(report.runner, "mock");
   });
 
@@ -80,4 +80,37 @@ describe("runCli", () => {
     assert.equal(code, 2);
     assert.match(cap.stderr(), /--timeout/);
   });
+
+  test("--concurrency runs cases in parallel", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--concurrency", "4", "--json"], cap.io);
+    assert.equal(code, 0);
+    const report = JSON.parse(cap.stdout()) as { ok: boolean; passed: number };
+    assert.equal(report.ok, true);
+    assert.equal(report.passed, 5);
+  });
+
+  test("invalid concurrency is a usage error", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--concurrency", "0"], cap.io);
+    assert.equal(code, 2);
+    assert.match(cap.stderr(), /--concurrency/);
+  });
+
+  test("--no-color strips ANSI even on TTY-shaped io", async () => {
+    const withColor = captureIo();
+    delete withColor.io.env.NO_COLOR;
+    withColor.io.isTTY = true;
+    const colored = await runCli(["examples/suite.yaml", "--mock"], withColor.io);
+    assert.equal(colored, 0);
+    assert.match(withColor.stdout(), /\u001b\[/);
+
+    const noColor = captureIo();
+    delete noColor.io.env.NO_COLOR;
+    noColor.io.isTTY = true;
+    const code = await runCli(["examples/suite.yaml", "--mock", "--no-color"], noColor.io);
+    assert.equal(code, 0);
+    assert.doesNotMatch(noColor.stdout(), /\u001b\[/);
+  });
+
 });

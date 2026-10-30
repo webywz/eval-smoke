@@ -10,14 +10,15 @@ eval-smoke examples/suite.yaml --mock
 ```
 
 ```
-eval-smoke 0.1.1  ·  mock  ·  gpt-4o-mini  ·  demo  ·  4 cases
+eval-smoke 0.2.0  ·  mock  ·  gpt-4o-mini  ·  demo  ·  5 cases
 
   pass  greeting               0ms
   pass  capital-france         0ms
   pass  arithmetic             0ms
   pass  refuse-injection       0ms
+  pass  exact-hello            0ms
 
-4 passed  0 failed  1ms
+5 passed  0 failed  1ms
 ```
 
 `--mock` is offline and deterministic. Contributors and CI do not need API keys.
@@ -41,6 +42,7 @@ Requires Node 18+.
 ```bash
 eval-smoke examples/suite.yaml --mock
 eval-smoke examples/suite.yaml --mock --json
+eval-smoke examples/suite.yaml --mock --concurrency 4
 OPENAI_API_KEY=sk-... eval-smoke examples/suite.yaml
 ANTHROPIC_API_KEY=sk-ant-... eval-smoke examples/suite.yaml --model claude-3-5-haiku-20241022
 ```
@@ -58,10 +60,18 @@ cases:
   - id: greeting
     prompt: Reply with exactly the word Hello.
     expect:
+      equals: Hello
       contains: Hello
       not_contains: Goodbye
       regex: "(?i)^hello\\b"
+      min_tokens: 1
       max_tokens: 32
+
+  - id: json-city
+    prompt: Reply with JSON {"city":"Paris"} only.
+    expect:
+      json:
+        city: Paris
 ```
 
 A bare list is also valid:
@@ -80,12 +90,15 @@ A bare list is also valid:
 | `expect.contains` | case | Substring, case-insensitive. String or list; all must match. |
 | `expect.not_contains` | case | Substring must be absent. String or list. |
 | `expect.regex` | case | JavaScript regex. `/pattern/i`, `(?i)pattern`, or a raw pattern. |
+| `expect.equals` | case | Exact match after NFC + LF normalize; one trailing newline ignored. |
+| `expect.json` | case | `true` = must parse as JSON; object/array = deep-equal after parse. |
+| `expect.min_tokens` | case | Approximate floor using `ceil(chars / 4)`. |
 | `expect.max_tokens` | case | Approximate cap using `ceil(chars / 4)`. |
 | `system` | suite or case | Optional system prompt for live providers. |
 | `model` | suite or case | Live default: `gpt-4o-mini` or `claude-3-5-haiku-20241022`. |
 | `provider` | suite | `openai`, `anthropic`, or `mock`. |
 
-At least one matcher is required on every case.
+At least one matcher is required on every case. Failed checks print expected/actual (and a first-diff pointer for `equals`).
 
 ## CLI
 
@@ -95,9 +108,11 @@ eval-smoke <suite.yaml|suite.json> [options]
   --mock              Offline runner with deterministic fake answers
   --json              Machine-readable JSON report
   --fail-fast         Stop after the first failing case
+  --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
   --timeout <ms>      Per-case timeout (default: 30000)
   --model <name>      Override suite model
   --provider <name>   openai | anthropic | mock
+  --no-color          Disable ANSI colors (also respects NO_COLOR)
   -h, --help
   -v, --version
 ```
@@ -136,11 +151,11 @@ eval-smoke examples/suite.yaml --mock --json
 ```json
 {
   "ok": true,
-  "version": "0.1.1",
+  "version": "0.2.0",
   "runner": "mock",
   "model": "gpt-4o-mini",
   "suite": "demo",
-  "passed": 4,
+  "passed": 5,
   "failed": 0,
   "skipped": 0,
   "duration_ms": 1,
@@ -156,13 +171,15 @@ eval-smoke examples/suite.yaml --mock --json
 }
 ```
 
+Failed checks may include `actual` plus a multi-line `detail` (first-diff for `equals`).
+
 ## Programmatic API
 
 ```ts
 import { loadSuite, runSuite } from "@webywz/eval-smoke";
 
 const suite = loadSuite("examples/suite.yaml");
-const report = await runSuite(suite, { mock: true });
+const report = await runSuite(suite, { mock: true, concurrency: 4 });
 if (!report.ok) process.exit(1);
 ```
 
@@ -173,7 +190,7 @@ if (!report.ok) process.exit(1);
 GitHub Actions in this repo runs `npm test`, `npm run build`, and `eval-smoke examples/suite.yaml --mock` on Node 18/20/22. Drop this into another project:
 
 ```yaml
-- run: npx @webywz/eval-smoke@0.1.1 prompts/smoke.yaml --mock
+- run: npx @webywz/eval-smoke@0.2.0 prompts/smoke.yaml --mock
 ```
 
 ## License

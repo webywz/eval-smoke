@@ -1,7 +1,7 @@
 {
   "name": "@webywz/eval-smoke",
-  "version": "0.1.1",
-  "description": "One-minute smoke evals for prompts and models — catch regressions before they ship.",
+  "version": "0.2.0",
+  "description": "One-minute smoke evals for prompts and models — equals/json matchers, diffs, concurrency.",
   "type": "module",
   "bin": {
     "eval-smoke": "dist/cli.js"

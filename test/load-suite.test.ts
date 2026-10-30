@@ -64,13 +64,43 @@ describe("parseSuite", () => {
   test("rejects empty suites", () => {
     assert.throws(() => parseSuite({ cases: [] }), /no cases/);
   });
+  test("accepts equals, json, and min_tokens", () => {
+    const suite = parseSuite([
+      {
+        id: "a",
+        prompt: "hi",
+        expect: { equals: "Hello", json: true, min_tokens: 1, max_tokens: 8 },
+      },
+    ]);
+    assert.equal(suite.cases[0]?.expect.equals, "Hello");
+    assert.equal(suite.cases[0]?.expect.json, true);
+    assert.equal(suite.cases[0]?.expect.min_tokens, 1);
+  });
+
+  test("accepts json object expect", () => {
+    const suite = parseSuite([
+      { id: "a", prompt: "hi", expect: { json: { city: "Paris" } } },
+    ]);
+    assert.deepEqual(suite.cases[0]?.expect.json, { city: "Paris" });
+  });
+
+  test("rejects min_tokens greater than max_tokens", () => {
+    assert.throws(
+      () =>
+        parseSuite([
+          { id: "a", prompt: "1", expect: { min_tokens: 10, max_tokens: 2 } },
+        ]),
+      /cannot exceed max_tokens/,
+    );
+  });
+
 });
 
 describe("loadSuite", () => {
   test("loads YAML object suites from disk", () => {
     const suite = loadSuite("examples/suite.yaml", repoRoot);
     assert.equal(suite.name, "demo");
-    assert.equal(suite.cases.length, 4);
+    assert.equal(suite.cases.length, 5);
   });
 
   test("loads a YAML list", () => {
