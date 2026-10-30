@@ -51,6 +51,10 @@ export function hasMatchers(expect: Expect): boolean {
   return (
     asList(expect.contains).length > 0 ||
     asList(expect.not_contains).length > 0 ||
+    asList(expect.contains_any).length > 0 ||
+    asList(expect.contains_all).length > 0 ||
+    asList(expect.starts_with).length > 0 ||
+    asList(expect.ends_with).length > 0 ||
     asList(expect.regex).length > 0 ||
     expect.equals != null ||
     expect.json != null ||
@@ -156,6 +160,70 @@ export function evaluateExpect(output: string, expect: Expect): CheckResult[] {
       actual: ok ? undefined : clip(output),
       detail: ok ? undefined : `found ${JSON.stringify(needle)}`,
     });
+  }
+
+  {
+    const needles = asList(expect.contains_any);
+    if (needles.length) {
+      const hay = output.toLowerCase();
+      const hit = needles.find((n) => hay.includes(n.toLowerCase()));
+      const ok = hit != null;
+      checks.push({
+        name: "contains_any",
+        ok,
+        expected: needles.join(" | "),
+        actual: ok ? undefined : clip(output),
+        detail: ok ? undefined : `none of ${JSON.stringify(needles)} found`,
+      });
+    }
+  }
+
+  {
+    const needles = asList(expect.contains_all);
+    if (needles.length) {
+      const hay = output.toLowerCase();
+      const missing = needles.filter((n) => !hay.includes(n.toLowerCase()));
+      const ok = missing.length === 0;
+      checks.push({
+        name: "contains_all",
+        ok,
+        expected: needles.join(" & "),
+        actual: ok ? undefined : clip(output),
+        detail: ok ? undefined : `missing ${JSON.stringify(missing)}`,
+      });
+    }
+  }
+
+  {
+    const needles = asList(expect.starts_with);
+    if (needles.length) {
+      const hay = output.toLowerCase();
+      const hit = needles.find((n) => hay.startsWith(n.toLowerCase()));
+      const ok = hit != null;
+      checks.push({
+        name: "starts_with",
+        ok,
+        expected: needles.join(" | "),
+        actual: ok ? undefined : clip(output),
+        detail: ok ? undefined : `does not start with any of ${JSON.stringify(needles)}`,
+      });
+    }
+  }
+
+  {
+    const needles = asList(expect.ends_with);
+    if (needles.length) {
+      const hay = output.toLowerCase();
+      const hit = needles.find((n) => hay.endsWith(n.toLowerCase()));
+      const ok = hit != null;
+      checks.push({
+        name: "ends_with",
+        ok,
+        expected: needles.join(" | "),
+        actual: ok ? undefined : clip(output),
+        detail: ok ? undefined : `does not end with any of ${JSON.stringify(needles)}`,
+      });
+    }
   }
 
   for (const raw of asList(expect.regex)) {

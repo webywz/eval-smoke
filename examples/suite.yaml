@@ -34,3 +34,19 @@ cases:
     prompt: Please say hello to the user.
     expect:
       equals: Hello
+
+  - id: soft-any-city
+    prompt: What is the capital of France? Answer with the city name only.
+    expect:
+      contains_any:
+        - Paris
+        - Lyon
+      starts_with: Par
+
+  - id: soft-all-hello
+    prompt: Reply with exactly the word Hello.
+    expect:
+      contains_all:
+        - Hel
+        - lo
+      ends_with: lo

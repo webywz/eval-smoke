@@ -41,7 +41,7 @@ describe("runCli", () => {
     const cap = captureIo();
     const code = await runCli(["examples/suite.yaml", "--mock"], cap.io);
     assert.equal(code, 0);
-    assert.match(cap.stdout(), /5 passed/);
+    assert.match(cap.stdout(), /7 passed/);
     assert.match(cap.stdout(), /greeting/);
   });
 
@@ -51,7 +51,7 @@ describe("runCli", () => {
     assert.equal(code, 0);
     const report = JSON.parse(cap.stdout()) as { ok: boolean; passed: number; runner: string };
     assert.equal(report.ok, true);
-    assert.equal(report.passed, 5);
+    assert.equal(report.passed, 7);
     assert.equal(report.runner, "mock");
   });
 
@@ -93,7 +93,7 @@ describe("runCli", () => {
     assert.equal(code, 0);
     const report = JSON.parse(cap.stdout()) as { ok: boolean; passed: number };
     assert.equal(report.ok, true);
-    assert.equal(report.passed, 5);
+    assert.equal(report.passed, 7);
   });
 
   test("invalid concurrency is a usage error", async () => {
@@ -154,11 +154,11 @@ describe("runCli", () => {
       const cap = captureIo();
       const code = await runCli(["examples/suite.yaml", "--mock", "--junit", out], cap.io);
       assert.equal(code, 0);
-      assert.match(cap.stdout(), /5 passed/);
+      assert.match(cap.stdout(), /7 passed/);
       const xml = readFileSync(out, "utf8");
       assert.match(xml, /<testsuites /);
       assert.match(xml, /name="greeting"/);
-      assert.match(xml, /tests="5"/);
+      assert.match(xml, /tests="7"/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
