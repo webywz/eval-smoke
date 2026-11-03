@@ -134,4 +134,169 @@ describe("runSuite", () => {
     assert.equal(report.skipped, 1);
   });
 
+  test("suite timeout_ms is used when no CLI timeout is set", async () => {
+    const complete: CompleteFn = ({ signal }) =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve("too late"), 10_000);
+        const onAbort = () => {
+          clearTimeout(timer);
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener("abort", onAbort, { once: true });
+      });
+    const report = await runSuite(
+      {
+        timeout_ms: 20,
+        cases: [{ id: "slow", prompt: "hello", expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock" },
+    );
+    assert.equal(report.ok, false);
+    assert.match(report.cases[0]?.error ?? "", /timed out after 20ms/);
+  });
+
+  test("case timeout_ms overrides suite timeout_ms", async () => {
+    const complete: CompleteFn = ({ signal }) =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve("too late"), 10_000);
+        const onAbort = () => {
+          clearTimeout(timer);
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener("abort", onAbort, { once: true });
+      });
+    const report = await runSuite(
+      {
+        timeout_ms: 5000,
+        cases: [{ id: "slow", prompt: "hello", timeout_ms: 15, expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock" },
+    );
+    assert.equal(report.ok, false);
+    assert.match(report.cases[0]?.error ?? "", /timed out after 15ms/);
+  });
+
+  test("CLI timeoutMs overrides case timeout_ms", async () => {
+    const complete: CompleteFn = ({ signal }) =>
+      new Promise((resolve, reject) => {
+        const timer = setTimeout(() => resolve("too late"), 10_000);
+        const onAbort = () => {
+          clearTimeout(timer);
+          const error = new Error("aborted");
+          error.name = "AbortError";
+          reject(error);
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener("abort", onAbort, { once: true });
+      });
+    const report = await runSuite(
+      {
+        timeout_ms: 5000,
+        cases: [{ id: "slow", prompt: "hello", timeout_ms: 2000, expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock", timeoutMs: 10 },
+    );
+    assert.equal(report.ok, false);
+    assert.match(report.cases[0]?.error ?? "", /timed out after 10ms/);
+  });
+
+  test("retries on HTTP 429 errors", async () => {
+    let attempts = 0;
+    const complete: CompleteFn = async () => {
+      attempts += 1;
+      if (attempts < 3) {
+        throw new Error("OpenAI 429: Rate limit exceeded");
+      }
+      return "Hello";
+    };
+    const report = await runSuite(
+      {
+        retry: 3,
+        cases: [{ id: "retry-test", prompt: "hello", expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock" },
+    );
+    assert.equal(report.ok, true);
+    assert.equal(attempts, 3);
+    assert.equal(report.cases[0]?.output, "Hello");
+  });
+
+  test("retries on HTTP 5xx errors", async () => {
+    let attempts = 0;
+    const complete: CompleteFn = async () => {
+      attempts += 1;
+      if (attempts < 2) {
+        throw new Error("Anthropic 503: Service unavailable");
+      }
+      return "Hello";
+    };
+    const report = await runSuite(
+      {
+        cases: [{ id: "retry-test", prompt: "hello", expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock", retry: 2 },
+    );
+    assert.equal(report.ok, true);
+    assert.equal(attempts, 2);
+  });
+
+  test("does not retry on match failures", async () => {
+    let attempts = 0;
+    const complete: CompleteFn = async () => {
+      attempts += 1;
+      return "Goodbye";
+    };
+    const report = await runSuite(
+      {
+        retry: 3,
+        cases: [{ id: "match-fail", prompt: "hello", expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock" },
+    );
+    assert.equal(report.ok, false);
+    assert.equal(attempts, 1);
+    assert.equal(report.cases[0]?.checks?.find((c) => c.name === "contains")?.ok, false);
+  });
+
+  test("does not retry on non-retryable errors", async () => {
+    let attempts = 0;
+    const complete: CompleteFn = async () => {
+      attempts += 1;
+      throw new Error("Invalid API key");
+    };
+    const report = await runSuite(
+      {
+        retry: 3,
+        cases: [{ id: "auth-fail", prompt: "hello", expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock" },
+    );
+    assert.equal(report.ok, false);
+    assert.equal(attempts, 1);
+    assert.match(report.cases[0]?.error ?? "", /Invalid API key/);
+  });
+
+  test("caps retries at specified maximum", async () => {
+    let attempts = 0;
+    const complete: CompleteFn = async () => {
+      attempts += 1;
+      throw new Error("OpenAI 500: Internal server error");
+    };
+    const report = await runSuite(
+      {
+        cases: [{ id: "max-retry", prompt: "hello", expect: { contains: "Hello" } }],
+      },
+      { complete, provider: "mock", retry: 2 },
+    );
+    assert.equal(report.ok, false);
+    assert.equal(attempts, 3);
+    assert.match(report.cases[0]?.error ?? "", /500/);
+  });
+
 });

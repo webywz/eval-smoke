@@ -108,6 +108,45 @@ describe("parseSuite", () => {
     );
   });
 
+  test("accepts suite timeout_ms and retry", () => {
+    const suite = parseSuite({
+      timeout_ms: 5000,
+      retry: 3,
+      cases: [{ id: "a", prompt: "hi", expect: { contains: "x" } }],
+    });
+    assert.equal(suite.timeout_ms, 5000);
+    assert.equal(suite.retry, 3);
+  });
+
+  test("accepts case timeout_ms", () => {
+    const suite = parseSuite([
+      { id: "a", prompt: "hi", timeout_ms: 2000, expect: { contains: "x" } },
+    ]);
+    assert.equal(suite.cases[0]?.timeout_ms, 2000);
+  });
+
+  test("rejects non-positive timeout_ms", () => {
+    assert.throws(
+      () => parseSuite({ timeout_ms: 0, cases: [{ id: "a", prompt: "1", expect: { contains: "x" } }] }),
+      /timeout_ms/,
+    );
+  });
+
+  test("rejects negative retry", () => {
+    assert.throws(
+      () => parseSuite({ retry: -1, cases: [{ id: "a", prompt: "1", expect: { contains: "x" } }] }),
+      /retry/,
+    );
+  });
+
+  test("accepts retry: 0", () => {
+    const suite = parseSuite({
+      retry: 0,
+      cases: [{ id: "a", prompt: "hi", expect: { contains: "x" } }],
+    });
+    assert.equal(suite.retry, 0);
+  });
+
 });
 
 describe("loadSuite", () => {
