@@ -12,7 +12,7 @@ import { redactSecrets } from "./redact.js";
 import { formatReport } from "./report.js";
 import { formatSarif } from "./sarif.js";
 import { formatTap } from "./tap.js";
-import { DEFAULT_TIMEOUT_MS, runSuite } from "./run.js";
+import { DEFAULT_TIMEOUT_MS, DEFAULT_RETRY, runSuite } from "./run.js";
 import { formatGithubSummary } from "./summary-md.js";
 import { UsageError, type ProviderName, type Suite } from "./types.js";
 import { VERSION } from "./version.js";
@@ -37,7 +37,8 @@ Options:
   --only <pattern>    Run cases whose id contains pattern, or matches /regex/
   --fail-fast         Stop after the first failing case
   --concurrency <n>   Run up to N cases in parallel (default: 1; ignored with --fail-fast)
-  --timeout <ms>      Per-case timeout (default: ${DEFAULT_TIMEOUT_MS})
+  --timeout <ms>      Per-case timeout; overrides suite/case timeout_ms (default: ${DEFAULT_TIMEOUT_MS})
+  --retry <n>         Max retries on HTTP 429/5xx (default: ${DEFAULT_RETRY}; overrides suite retry)
   --model <name>      Override suite model
   --provider <name>   openai | anthropic | mock | ollama | openai-compat
   --base-url <url>    Override suite/env base URL (ollama / openai-compat / openai)
@@ -65,6 +66,7 @@ Examples:
   eval-smoke examples/suite.yaml --mock --html report.html
   eval-smoke examples/suite.yaml --json --fail-fast
   eval-smoke examples/suite.yaml --mock --concurrency 4
+  eval-smoke examples/suite.yaml --mock --retry 3
   eval-smoke examples/suite.yaml --mock --update-baseline baseline.json
   eval-smoke examples/suite.yaml --mock --baseline baseline.json
   eval-smoke examples/suite.yaml --mock --github-summary
@@ -102,6 +104,15 @@ function parseConcurrency(raw: string | undefined): number | undefined {
   const value = Number(raw);
   if (!Number.isInteger(value) || value <= 0) {
     throw new UsageError("--concurrency must be a positive integer");
+  }
+  return value;
+}
+
+function parseRetry(raw: string | undefined): number | undefined {
+  if (raw == null) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 0) {
+    throw new UsageError("--retry must be a non-negative integer");
   }
   return value;
 }
@@ -190,6 +201,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
         "fail-fast": { type: "boolean", default: false },
         concurrency: { type: "string" },
         timeout: { type: "string" },
+        retry: { type: "string" },
         model: { type: "string" },
         provider: { type: "string" },
         "base-url": { type: "string" },
@@ -264,6 +276,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       failFast: asBool(values["fail-fast"]),
       concurrency: parseConcurrency(asString(values.concurrency)),
       timeoutMs: parseTimeout(asString(values.timeout)),
+      retry: parseRetry(asString(values.retry)),
       env: io.env,
     });
     if (junitPath != null) {

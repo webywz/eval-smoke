@@ -34,6 +34,8 @@ export interface Case {
   prompt: string;
   system?: string;
   model?: string;
+  /** Per-case timeout in milliseconds. Overridden by CLI --timeout when set. */
+  timeout_ms?: number;
   expect: Expect;
 }
 
@@ -46,6 +48,10 @@ export interface Suite {
   system?: string;
   /** Fail the suite if sum of estimated case costs exceeds this USD budget. */
   budget_usd?: number;
+  /** Suite-level default timeout in milliseconds. Overridden by case timeout_ms or CLI --timeout. */
+  timeout_ms?: number;
+  /** Maximum retry attempts on HTTP 429 and 5xx errors (default: 0, no retries). */
+  retry?: number;
   cases: Case[];
 }
 
@@ -118,6 +124,8 @@ export interface RunOptions {
   model?: string;
   failFast?: boolean;
   timeoutMs?: number;
+  /** Maximum retry attempts on HTTP 429 and 5xx errors (default: 0, no retries). Overrides suite retry field when set. */
+  retry?: number;
   /** Run up to N cases at once (default 1). Ignored when failFast is set. */
   concurrency?: number;
   complete?: CompleteFn;

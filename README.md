@@ -133,6 +133,9 @@ cases:
 | `expect.max_latency_ms` | Fail if measured case `duration_ms` exceeds budget |
 | `expect.max_cost_usd` | Fail if estimated case cost (USD, built-in unit-price table) exceeds budget |
 | `budget_usd` (suite) | Fail suite if sum of estimated case costs exceeds USD budget |
+| `timeout_ms` (suite) | Suite-level default timeout in milliseconds; overridden by case `timeout_ms` or CLI `--timeout` |
+| `timeout_ms` (case) | Per-case timeout in milliseconds; overridden by CLI `--timeout` |
+| `retry` (suite) | Max retry attempts on HTTP 429/5xx errors (default 0); overridden by CLI `--retry` |
 | `system` / `model` | Suite or case |
 | `provider` | `openai`, `anthropic`, `mock`, `ollama`, or `openai-compat` |
 | `base_url` | Local / OpenAI-compatible chat base (Ollama default `http://127.0.0.1:11434/v1`) |
@@ -161,7 +164,8 @@ eval-smoke init [dir] [--force]
 | `--only <pattern>` | Cases whose id contains pattern, or matches `/regex/` |
 | `--fail-fast` | Stop after first failure |
 | `--concurrency <n>` | Parallel cases (default 1; ignored with `--fail-fast`) |
-| `--timeout <ms>` | Per-case timeout (default 30000) |
+| `--timeout <ms>` | Per-case timeout; overrides suite/case `timeout_ms` (default 30000) |
+| `--retry <n>` | Max retry attempts on HTTP 429/5xx errors (default 0); overrides suite `retry` |
 | `--model <name>` | Override suite model |
 | `--provider <name>` | `openai` \| `anthropic` \| `mock` \| `ollama` \| `openai-compat` |
 | `--base-url <url>` | Override suite/env base URL for ollama / openai-compat / openai |
@@ -346,6 +350,9 @@ cases:
 | `expect.max_latency_ms` | 实测 `duration_ms` 超过预算则失败 |
 | `expect.max_cost_usd` | 估算费用（USD，内置单价表）超过预算则失败 |
 | `budget_usd`（套件） | 全套估算费用之和超过 USD 预算则失败 |
+| `timeout_ms`（套件） | 套件级默认超时（毫秒）；被用例 `timeout_ms` 或 CLI `--timeout` 覆盖 |
+| `timeout_ms`（用例） | 单用例超时（毫秒）；被 CLI `--timeout` 覆盖 |
+| `retry`（套件） | HTTP 429/5xx 最大重试次数（默认 0）；被 CLI `--retry` 覆盖 |
 | `system` / `model` | 套件级或用例级 |
 | `provider` | `openai` / `anthropic` / `mock` / `ollama` / `openai-compat` |
 | `base_url` | 本地 / OpenAI 兼容 chat 基址（Ollama 默认 `http://127.0.0.1:11434/v1`） |
@@ -369,7 +376,8 @@ cases:
 | `--only <pattern>` | 按 id 子串或 `/regex/` 过滤 |
 | `--fail-fast` | 首个失败即停 |
 | `--concurrency <n>` | 并行用例数（默认 1） |
-| `--timeout <ms>` | 单用例超时（默认 30000） |
+| `--timeout <ms>` | 单用例超时；覆盖套件/用例 `timeout_ms`（默认 30000） |
+| `--retry <n>` | HTTP 429/5xx 最大重试次数（默认 0）；覆盖套件 `retry` |
 | `--model` / `--provider` | 覆盖模型 / 提供商（`openai`/`anthropic`/`mock`/`ollama`/`openai-compat`） |
 | `--base-url <url>` | 覆盖套件/环境 base URL（ollama / openai-compat / openai） |
 | `--force` | `init` 时覆盖 |
