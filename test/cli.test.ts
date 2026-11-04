@@ -241,4 +241,43 @@ describe("runCli", () => {
     assert.match(cap.stderr(), /openai-compat/);
   });
 
+  test("--seed produces reproducible mock outputs", async () => {
+    const cap1 = captureIo();
+    const code1 = await runCli(["examples/suite.yaml", "--mock", "--seed", "42", "--json"], cap1.io);
+    assert.equal(code1, 0);
+    const report1 = JSON.parse(cap1.stdout()) as { cases: Array<{ output?: string }> };
+
+    const cap2 = captureIo();
+    const code2 = await runCli(["examples/suite.yaml", "--mock", "--seed", "42", "--json"], cap2.io);
+    assert.equal(code2, 0);
+    const report2 = JSON.parse(cap2.stdout()) as { cases: Array<{ output?: string }> };
+
+    assert.deepEqual(
+      report1.cases.map((c) => c.output),
+      report2.cases.map((c) => c.output),
+      "Same seed should produce identical outputs",
+    );
+  });
+
+  test("--seed accepts any integer value", async () => {
+    const cap1 = captureIo();
+    const code1 = await runCli(["examples/suite.yaml", "--mock", "--seed", "42", "--json"], cap1.io);
+    assert.equal(code1, 0);
+
+    const cap2 = captureIo();
+    const code2 = await runCli(["examples/suite.yaml", "--mock", "--seed", "99", "--json"], cap2.io);
+    assert.equal(code2, 0);
+
+    const cap3 = captureIo();
+    const code3 = await runCli(["examples/suite.yaml", "--mock", "--seed", "0"], cap3.io);
+    assert.equal(code3, 0);
+  });
+
+  test("invalid --seed is a usage error", async () => {
+    const cap = captureIo();
+    const code = await runCli(["examples/suite.yaml", "--mock", "--seed", "not-a-number"], cap.io);
+    assert.equal(code, 2);
+    assert.match(cap.stderr(), /--seed must be an integer/);
+  });
+
 });

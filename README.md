@@ -35,7 +35,7 @@ eval-smoke 0.8.0  ·  mock  ·  gpt-4o-mini  ·  smoke  ·  4 cases
 4 passed  0 failed  1ms
 ```
 
-`--mock` is offline and deterministic. CI and contributors do not need API keys.
+`--mock` is offline and deterministic. Use `--seed <n>` to make mock runs fully reproducible. CI and contributors do not need API keys.
 
 ### Features
 
@@ -152,6 +152,7 @@ eval-smoke init [dir] [--force]
 | Flag | Meaning |
 | --- | --- |
 | `--mock` | Offline deterministic runner |
+| `--seed <n>` | Seed for deterministic mock runs (default: no seed) |
 | `--json` | Machine-readable JSON report |
 | `--tap` | Emit TAP version 13 on stdout (one ok/not ok per case) |
 | `--junit <path>` | Write JUnit XML (still prints human report unless `--json`/`--tap`) |
@@ -262,7 +263,7 @@ eval-smoke init
 eval-smoke suite.yaml --mock
 ```
 
-`--mock` 离线、确定。CI 与贡献者不需要 API key。
+`--mock` 离线、确定。使用 `--seed <n>` 可让 mock 运行完全可复现。CI 与贡献者不需要 API key。
 
 ### 功能
 
@@ -364,6 +365,7 @@ cases:
 | 参数 | 含义 |
 | --- | --- |
 | `--mock` | 离线确定性运行 |
+| `--seed <n>` | 确定性 mock 运行的种子（默认：无种子） |
 | `--json` | JSON 报告 |
 | `--tap` | 向 stdout 输出 TAP version 13（每用例一行 ok/not ok） |
 | `--junit <path>` | 写出 JUnit XML（仍打印人类可读报告，除非同时 `--json`/`--tap`） |

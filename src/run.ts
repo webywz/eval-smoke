@@ -233,7 +233,7 @@ export async function runSuite(suite: Suite, options: RunOptions = {}): Promise<
   const model = resolveModel(runner, options.model, suite.model);
   const complete =
     options.complete ??
-    createComplete(runner, env, options.fetch ?? globalThis.fetch, options.baseUrl ?? suite.base_url);
+    createComplete(runner, env, options.fetch ?? globalThis.fetch, options.baseUrl ?? suite.base_url, options.seed);
   const concurrency = resolveConcurrency(options);
   const maxRetries = options.retry ?? suite.retry ?? DEFAULT_RETRY;
   const started = performance.now();

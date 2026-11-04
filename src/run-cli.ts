@@ -28,6 +28,7 @@ Usage:
 
 Options:
   --mock              Offline runner with deterministic fake answers
+  --seed <n>          Seed for deterministic mock runs (default: no seed, current behavior)
   --json              Machine-readable JSON report
   --tap               Emit TAP version 13 on stdout (one ok/not ok per case)
   --junit <path>      Write JUnit XML report to path (still prints human report unless --json/--tap)
@@ -59,6 +60,7 @@ Examples:
   eval-smoke init
   eval-smoke init ./prompts --force
   eval-smoke examples/suite.yaml --mock
+  eval-smoke examples/suite.yaml --mock --seed 42
   eval-smoke examples/suite.yaml --mock --only greeting
   eval-smoke examples/suite.yaml --mock --only '/^capital/'
   eval-smoke examples/suite.yaml --mock --junit junit.xml
@@ -113,6 +115,15 @@ function parseRetry(raw: string | undefined): number | undefined {
   const value = Number(raw);
   if (!Number.isInteger(value) || value < 0) {
     throw new UsageError("--retry must be a non-negative integer");
+  }
+  return value;
+}
+
+function parseSeed(raw: string | undefined): number | undefined {
+  if (raw == null) return undefined;
+  const value = Number(raw);
+  if (!Number.isInteger(value)) {
+    throw new UsageError("--seed must be an integer");
   }
   return value;
 }
@@ -191,6 +202,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       strict: true,
       options: {
         mock: { type: "boolean", default: false },
+        seed: { type: "string" },
         json: { type: "boolean", default: false },
         tap: { type: "boolean", default: false },
         junit: { type: "string" },
@@ -277,6 +289,7 @@ export async function runCli(argv: string[], io: CliIo = defaultIo()): Promise<n
       concurrency: parseConcurrency(asString(values.concurrency)),
       timeoutMs: parseTimeout(asString(values.timeout)),
       retry: parseRetry(asString(values.retry)),
+      seed: parseSeed(asString(values.seed)),
       env: io.env,
     });
     if (junitPath != null) {
