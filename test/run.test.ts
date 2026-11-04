@@ -299,4 +299,53 @@ describe("runSuite", () => {
     assert.match(report.cases[0]?.error ?? "", /500/);
   });
 
+  test("same seed produces identical mock outputs", async () => {
+    const testSuite: Suite = {
+      name: "seed-test",
+      cases: [
+        { id: "hello", prompt: "Say hello", expect: { contains: "hello" } },
+        { id: "capital", prompt: "What is the capital of France?", expect: { contains: "paris" } },
+        { id: "math", prompt: "What is 2 + 2?", expect: { contains: "4" } },
+      ],
+    };
+
+    const report1 = await runSuite(testSuite, { mock: true, seed: 42 });
+    const report2 = await runSuite(testSuite, { mock: true, seed: 42 });
+
+    assert.equal(report1.cases.length, report2.cases.length);
+    for (let i = 0; i < report1.cases.length; i += 1) {
+      assert.equal(report1.cases[i]?.output, report2.cases[i]?.output, `Case ${i} output should match`);
+    }
+  });
+
+  test("seed accepts any integer", async () => {
+    const testSuite: Suite = {
+      name: "seed-test",
+      cases: [
+        { id: "hello", prompt: "Say hello", expect: { contains: "hello" } },
+      ],
+    };
+
+    const report1 = await runSuite(testSuite, { mock: true, seed: 42 });
+    const report2 = await runSuite(testSuite, { mock: true, seed: 99 });
+    const report3 = await runSuite(testSuite, { mock: true, seed: 0 });
+
+    assert.ok(report1.ok);
+    assert.ok(report2.ok);
+    assert.ok(report3.ok);
+  });
+
+  test("no seed maintains current default behavior", async () => {
+    const testSuite: Suite = {
+      name: "no-seed-test",
+      cases: [
+        { id: "hello", prompt: "Say hello", expect: { contains: "hello" } },
+      ],
+    };
+
+    const report = await runSuite(testSuite, { mock: true });
+    assert.ok(report.cases[0]?.output);
+    assert.match(report.cases[0]?.output ?? "", /hello/i);
+  });
+
 });

@@ -131,6 +131,8 @@ export interface RunOptions {
   complete?: CompleteFn;
   /** Override suite/env base URL for openai-compat / ollama / openai. */
   baseUrl?: string;
+  /** Seed for deterministic mock runs. When set, mock responses and randomness use this seed. */
+  seed?: number;
   env?: NodeJS.ProcessEnv;
   fetch?: typeof fetch;
 }

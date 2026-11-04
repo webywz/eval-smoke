@@ -17,12 +17,19 @@ export const DEFAULT_MODELS: Record<Exclude<ProviderName, "mock">, string> = {
   "openai-compat": "gpt-4o-mini",
 };
 
+export function createMockComplete(_seed?: number): CompleteFn {
+  return (request: CompleteRequest): Promise<string> => {
+    if (request.signal.aborted) {
+      return Promise.reject(signalError(request.signal));
+    }
+    const hit = MOCK_FIXTURES.find((fixture) => fixture.match.test(request.prompt));
+    const reply = hit?.reply ?? `[mock] No canned reply for this prompt.`;
+    return Promise.resolve(reply);
+  };
+}
+
 export function mockComplete(request: CompleteRequest): Promise<string> {
-  if (request.signal.aborted) {
-    return Promise.reject(signalError(request.signal));
-  }
-  const hit = MOCK_FIXTURES.find((fixture) => fixture.match.test(request.prompt));
-  return Promise.resolve(hit?.reply ?? `[mock] No canned reply for this prompt.`);
+  return createMockComplete()(request);
 }
 
 function signalError(signal: AbortSignal): Error {
@@ -172,8 +179,9 @@ export function createComplete(
   env: NodeJS.ProcessEnv = process.env,
   fetchFn: typeof fetch = fetch,
   baseUrl?: string,
+  seed?: number,
 ): CompleteFn {
-  if (provider === "mock") return mockComplete;
+  if (provider === "mock") return createMockComplete(seed);
   if (provider === "openai") {
     const key = env.OPENAI_API_KEY;
     if (!key) throw new UsageError("OPENAI_API_KEY is not set");
